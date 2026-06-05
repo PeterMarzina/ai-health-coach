@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, SafeAreaView, StyleSheet } from 'react-native'
 import HomeScreen from './src/screens/HomeScreen'
 import LoginScreen from './src/screens/LoginScreen'
-import { supabase } from './src/lib/subabase'
+import { supabase } from './src/lib/supabase'
+
 
 export default function App() {
   const [session, setSession] = useState(null)
