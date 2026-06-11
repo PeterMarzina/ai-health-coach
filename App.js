@@ -4,7 +4,6 @@ import HomeScreen from './src/screens/HomeScreen'
 import LoginScreen from './src/screens/LoginScreen'
 import { supabase } from './src/lib/supabase'
 
-
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -14,7 +13,6 @@ export default function App() {
 
     const loadSession = async () => {
       const { data } = await supabase.auth.getSession()
-
       if (isMounted) {
         setSession(data?.session ?? null)
         setLoading(false)
@@ -45,9 +43,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 })
