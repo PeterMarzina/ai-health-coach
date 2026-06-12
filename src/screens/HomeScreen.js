@@ -1,4 +1,4 @@
-import { View, Text, SafeAreaView, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { View, Text, SafeAreaView, TouchableOpacity, Alert } from 'react-native'
 import { signOut } from '../services/auth'
 
 export default function HomeScreen() {
@@ -8,85 +8,25 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>🏥</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <View className="flex-1 justify-between px-6 pt-6 pb-10">
+        <View className="items-center">
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-full border-2 border-accent bg-surface">
+            <Text className="text-4xl font-bold">🏥</Text>
           </View>
-          <Text style={styles.title}>AI Health Coach</Text>
-          <Text style={styles.subtitle}>Welcome back! Ready to achieve your health goals?</Text>
+          <Text className="mb-2 text-center text-[28px] font-bold text-white">AI Health Coach</Text>
+          <Text className="max-w-[280px] text-center text-sm leading-5 text-muted">
+            Welcome back! Ready to achieve your health goals?
+          </Text>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
-          <Text style={styles.logoutBtnText}>Logout</Text>
+        <TouchableOpacity
+          className="items-center rounded-[14px] bg-accent py-4"
+          onPress={handleSignOut}
+        >
+          <Text className="text-base font-bold text-black">Logout</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   )
 }
-
-// ─── STYLES ───────────────────────────────────────────────────────────────────
-const GREEN = "#4ADE80"; // neon green accent
-const BG = "#0A0A0A"; // near-black background
-const CARD = "#161616"; // input / card background
-const BORDER = "#2A2A2A"; // subtle border
-const WHITE = "#FFFFFF";
-const GRAY = "#888888";
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
-    justifyContent: 'space-between',
-  },
-  header: {
-    alignItems: 'center',
-  },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    backgroundColor: CARD,
-  },
-  logoText: {
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  title: {
-    color: WHITE,
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: GRAY,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-  logoutBtn: {
-    backgroundColor: GREEN,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  logoutBtnText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-})

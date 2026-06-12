@@ -5,7 +5,6 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -14,12 +13,12 @@ import {
 import { signIn, signUp } from "../services/auth";
 
 // ─── Icons (inline SVG-style via Text — swap with lucide-react-native if available) ───
-const EmailIcon = () => <Text style={styles.inputIcon}>✉</Text>;
-const LockIcon = () => <Text style={styles.inputIcon}>🔒</Text>;
+const EmailIcon = () => <Text className="mr-2.5 text-base text-muted">✉</Text>;
+const LockIcon = () => <Text className="mr-2.5 text-base text-muted">🔒</Text>;
 const EyeIcon = ({ show }) => (
-  <Text style={styles.eyeIcon}>{show ? "👁" : "🙈"}</Text>
+  <Text className="text-base text-muted">{show ? "👁" : "🙈"}</Text>
 );
-const UserIcon = () => <Text style={styles.inputIcon}>👤</Text>;
+const UserIcon = () => <Text className="mr-2.5 text-base text-muted">👤</Text>;
 
 // ─── Screens ─────────────────────────────────────────────────────────────────
 const SCREENS = {
@@ -40,10 +39,10 @@ function AuthInput({
   showSecure,
 }) {
   return (
-    <View style={styles.inputWrapper}>
+    <View className="flex-row items-center rounded-xl border border-line bg-surface px-3.5 py-3.5">
       {icon}
       <TextInput
-        style={styles.input}
+        className="flex-1 text-[15px] text-white"
         placeholder={placeholder}
         placeholderTextColor="#555"
         value={value}
@@ -64,9 +63,9 @@ function AuthInput({
 // ─── Social Button ────────────────────────────────────────────────────────────
 function SocialButton({ label, emoji }) {
   return (
-    <TouchableOpacity style={styles.socialBtn}>
-      <Text style={styles.socialEmoji}>{emoji}</Text>
-      <Text style={styles.socialLabel}>{label}</Text>
+    <TouchableOpacity className="flex-row items-center justify-center gap-2.5 rounded-[14px] border border-line bg-surface py-3.5">
+      <Text className="text-lg">{emoji}</Text>
+      <Text className="text-[15px] font-medium text-white">{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -74,10 +73,10 @@ function SocialButton({ label, emoji }) {
 // ─── Divider ──────────────────────────────────────────────────────────────────
 function Divider() {
   return (
-    <View style={styles.dividerRow}>
-      <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>or continue with</Text>
-      <View style={styles.dividerLine} />
+    <View className="my-1 flex-row items-center">
+      <View className="h-px flex-1 bg-line" />
+      <Text className="mx-3 text-xs text-muted">or continue with</Text>
+      <View className="h-px flex-1 bg-line" />
     </View>
   );
 }
@@ -85,8 +84,8 @@ function Divider() {
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 function Logo() {
   return (
-    <View style={styles.logoCircle}>
-      <Text style={styles.logoText}>▲</Text>
+    <View className="mb-4 h-16 w-16 items-center justify-center rounded-full border-2 border-accent">
+      <Text className="text-[26px] font-bold text-accent">▲</Text>
     </View>
   );
 }
@@ -109,16 +108,16 @@ function LoginView({ onNavigate }) {
 
   return (
     <>
-      <TouchableOpacity style={styles.backBtn} onPress={() => {}}>
-        <Text style={styles.backArrow}>←</Text>
+      <TouchableOpacity className="mb-6" onPress={() => {}}>
+        <Text className="text-[22px] text-white">←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.screenTitle}>Log In</Text>
-      <Text style={styles.screenSubtitle}>
+      <Text className="mb-2 text-[28px] font-bold text-white">Log In</Text>
+      <Text className="mb-8 text-sm leading-5 text-muted">
         Welcome back! Please log in to continue.
       </Text>
 
-      <View style={styles.form}>
+      <View className="gap-3">
         <AuthInput
           icon={<EmailIcon />}
           placeholder="Email"
@@ -138,19 +137,21 @@ function LoginView({ onNavigate }) {
 
         <TouchableOpacity
           onPress={() => onNavigate(SCREENS.FORGOT)}
-          style={styles.forgotRow}
+          className="-mt-1 items-end"
         >
-          <Text style={styles.forgotText}>Forgot password?</Text>
+          <Text className="text-[13px] text-accent">Forgot password?</Text>
         </TouchableOpacity>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <Text className="mt-1 text-[13px] text-danger">{error}</Text>
+        ) : null}
 
         <TouchableOpacity
-          style={styles.primaryBtn}
+          className="mt-2 items-center rounded-[14px] bg-accent py-4"
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={styles.primaryBtnText}>
+          <Text className="text-base font-bold text-black">
             {loading ? "Logging in..." : "Log In"}
           </Text>
         </TouchableOpacity>
@@ -159,10 +160,10 @@ function LoginView({ onNavigate }) {
         <SocialButton label="Google" emoji="G" />
         <SocialButton label="Apple" emoji="" />
 
-        <View style={styles.switchRow}>
-          <Text style={styles.switchText}>Don't have an account? </Text>
+        <View className="mt-2 flex-row justify-center">
+          <Text className="text-[13px] text-muted">Don't have an account? </Text>
           <TouchableOpacity onPress={() => onNavigate(SCREENS.REGISTER)}>
-            <Text style={styles.switchLink}>Register</Text>
+            <Text className="text-[13px] font-semibold text-accent">Register</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -203,18 +204,20 @@ function RegisterView({ onNavigate }) {
   return (
     <>
       <TouchableOpacity
-        style={styles.backBtn}
+        className="mb-6"
         onPress={() => onNavigate(SCREENS.LOGIN)}
       >
-        <Text style={styles.backArrow}>←</Text>
+        <Text className="text-[22px] text-white">←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.screenTitle}>Create Account</Text>
-      <Text style={styles.screenSubtitle}>
+      <Text className="mb-2 text-[28px] font-bold text-white">
+        Create Account
+      </Text>
+      <Text className="mb-8 text-sm leading-5 text-muted">
         Let's get started on your health journey.
       </Text>
 
-      <View style={styles.form}>
+      <View className="gap-3">
         <AuthInput
           icon={<UserIcon />}
           placeholder="Full Name"
@@ -247,25 +250,27 @@ function RegisterView({ onNavigate }) {
           onToggleSecure={() => setShowConf((p) => !p)}
         />
 
-        <View style={styles.rulesList}>
+        <View className="mt-0.5 gap-1">
           {rules.map((r) => (
             <Text
               key={r.label}
-              style={[styles.ruleText, r.ok && styles.ruleOk]}
+              className={`text-xs ${r.ok ? "text-accent" : "text-muted"}`}
             >
               {r.ok ? "✓" : "·"} {r.label}
             </Text>
           ))}
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <Text className="mt-1 text-[13px] text-danger">{error}</Text>
+        ) : null}
 
         <TouchableOpacity
-          style={styles.primaryBtn}
+          className="mt-2 items-center rounded-[14px] bg-accent py-4"
           onPress={handleRegister}
           disabled={loading}
         >
-          <Text style={styles.primaryBtnText}>
+          <Text className="text-base font-bold text-black">
             {loading ? "Creating..." : "Create Account"}
           </Text>
         </TouchableOpacity>
@@ -274,10 +279,12 @@ function RegisterView({ onNavigate }) {
         <SocialButton label="Google" emoji="G" />
         <SocialButton label="Apple" emoji="" />
 
-        <View style={styles.switchRow}>
-          <Text style={styles.switchText}>Already have an account? </Text>
+        <View className="mt-2 flex-row justify-center">
+          <Text className="text-[13px] text-muted">
+            Already have an account?{" "}
+          </Text>
           <TouchableOpacity onPress={() => onNavigate(SCREENS.LOGIN)}>
-            <Text style={styles.switchLink}>Log In</Text>
+            <Text className="text-[13px] font-semibold text-accent">Log In</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -301,24 +308,26 @@ function ForgotView({ onNavigate }) {
   return (
     <>
       <TouchableOpacity
-        style={styles.backBtn}
+        className="mb-6"
         onPress={() => onNavigate(SCREENS.LOGIN)}
       >
-        <Text style={styles.backArrow}>←</Text>
+        <Text className="text-[22px] text-white">←</Text>
       </TouchableOpacity>
 
-      <View style={styles.centeredSection}>
-        <View style={styles.lockCircle}>
-          <Text style={styles.lockIcon}>🔏</Text>
+      <View className="mb-2 items-center">
+        <View className="mb-4 h-20 w-20 items-center justify-center rounded-full border border-line bg-surface">
+          <Text className="text-[32px]">🔏</Text>
         </View>
-        <Text style={styles.screenTitle}>Reset Password</Text>
-        <Text style={styles.screenSubtitle}>
+        <Text className="mb-2 text-[28px] font-bold text-white">
+          Reset Password
+        </Text>
+        <Text className="mb-8 text-sm leading-5 text-muted">
           Enter your email address and we'll send you a link to reset your
           password.
         </Text>
       </View>
 
-      <View style={styles.form}>
+      <View className="gap-3">
         <AuthInput
           icon={<EmailIcon />}
           placeholder="Email"
@@ -328,26 +337,28 @@ function ForgotView({ onNavigate }) {
         />
 
         {sent && (
-          <Text style={styles.successText}>
+          <Text className="mt-1 text-[13px] text-accent">
             Reset link sent! Check your email.
           </Text>
         )}
 
         <TouchableOpacity
-          style={styles.primaryBtn}
+          className="mt-2 items-center rounded-[14px] bg-accent py-4"
           onPress={handleReset}
           disabled={loading}
         >
-          <Text style={styles.primaryBtnText}>
+          <Text className="text-base font-bold text-black">
             {loading ? "Sending..." : "Send Reset Link"}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => onNavigate(SCREENS.LOGIN)}
-          style={styles.backLinkRow}
+          className="mt-2 items-center"
         >
-          <Text style={styles.switchLink}>Back to Log In</Text>
+          <Text className="text-[13px] font-semibold text-accent">
+            Back to Log In
+          </Text>
         </TouchableOpacity>
       </View>
     </>
@@ -361,13 +372,13 @@ export default function LoginScreen() {
   const navigate = (s) => setScreen(s);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerClassName="flex-grow px-6 pt-6 pb-10"
           keyboardShouldPersistTaps="handled"
         >
           {screen === SCREENS.LOGIN && <LoginView onNavigate={navigate} />}
@@ -380,160 +391,3 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── STYLES ───────────────────────────────────────────────────────────────────
-const GREEN = "#4ADE80"; // neon green accent
-const BG = "#0A0A0A"; // near-black background
-const CARD = "#161616"; // input / card background
-const BORDER = "#2A2A2A"; // subtle border
-const WHITE = "#FFFFFF";
-const GRAY = "#888888";
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
-  },
-
-  // Back button
-  backBtn: { marginBottom: 24 },
-  backArrow: { color: WHITE, fontSize: 22 },
-
-  // Titles
-  screenTitle: {
-    color: WHITE,
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  screenSubtitle: {
-    color: GRAY,
-    fontSize: 14,
-    marginBottom: 32,
-    lineHeight: 20,
-  },
-
-  // Form wrapper
-  form: { gap: 12 },
-
-  // Input
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: CARD,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  inputIcon: {
-    fontSize: 16,
-    marginRight: 10,
-    color: GRAY,
-  },
-  input: {
-    flex: 1,
-    color: WHITE,
-    fontSize: 15,
-  },
-  eyeIcon: {
-    fontSize: 16,
-    color: GRAY,
-  },
-
-  // Forgot
-  forgotRow: { alignItems: "flex-end", marginTop: -4 },
-  forgotText: { color: GREEN, fontSize: 13 },
-
-  // Error / success
-  errorText: { color: "#F87171", fontSize: 13, marginTop: 4 },
-  successText: { color: GREEN, fontSize: 13, marginTop: 4 },
-
-  // Primary button
-  primaryBtn: {
-    backgroundColor: GREEN,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  primaryBtnText: {
-    color: "#000",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  // Divider
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 4,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
-  dividerText: { color: GRAY, fontSize: 12, marginHorizontal: 12 },
-
-  // Social
-  socialBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: CARD,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingVertical: 14,
-    gap: 10,
-  },
-  socialEmoji: { fontSize: 18 },
-  socialLabel: { color: WHITE, fontSize: 15, fontWeight: "500" },
-
-  // Switch row
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  switchText: { color: GRAY, fontSize: 13 },
-  switchLink: { color: GREEN, fontSize: 13, fontWeight: "600" },
-
-  // Password rules
-  rulesList: { gap: 4, marginTop: 2 },
-  ruleText: { color: GRAY, fontSize: 12 },
-  ruleOk: { color: GREEN },
-
-  // Logo (onboarding)
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: GREEN,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  logoText: { color: GREEN, fontSize: 26, fontWeight: "700" },
-
-  // Lock icon (forgot pw)
-  centeredSection: { alignItems: "center", marginBottom: 8 },
-  lockCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: CARD,
-    borderWidth: 1,
-    borderColor: BORDER,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  lockIcon: { fontSize: 32 },
-  backLinkRow: { alignItems: "center", marginTop: 8 },
-});

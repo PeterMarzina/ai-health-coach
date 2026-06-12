@@ -17,7 +17,6 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -26,19 +25,7 @@ import {
 import { signIn, signUp } from "../services/auth";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const { width, height } = Dimensions.get("window");
-
-const C = {
-  bg: "#0A0A0A",
-  card: "#141414",
-  border: "#242424",
-  green: "#4ADE80",
-  greenDim: "#1A3A26",
-  white: "#FFFFFF",
-  gray: "#888888",
-  grayDim: "#444444",
-  red: "#F87171",
-};
+const { height } = Dimensions.get("window");
 
 const SCREENS = {
   SPLASH: "SPLASH",
@@ -55,10 +42,10 @@ function BackButton({ onPress }) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={s.backBtn}
+      className="mb-7 w-9"
       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
     >
-      <Text style={s.backArrow}>←</Text>
+      <Text className="text-2xl text-white">←</Text>
     </TouchableOpacity>
   );
 }
@@ -75,12 +62,14 @@ function AuthInput({
   autoCapitalize = "none",
 }) {
   return (
-    <View style={s.inputRow}>
-      <Text style={s.inputIcon}>{iconChar}</Text>
+    <View className="flex-row items-center rounded-xl border border-line-deep bg-surface-deep px-3.5 py-[15px]">
+      <Text className="mr-2.5 w-5 text-center text-[15px] text-muted">
+        {iconChar}
+      </Text>
       <TextInput
-        style={s.inputField}
+        className="flex-1 text-[15px] text-white"
         placeholder={placeholder}
-        placeholderTextColor={C.grayDim}
+        placeholderTextColor="#444444"
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry && !showPass}
@@ -89,7 +78,9 @@ function AuthInput({
       />
       {secureTextEntry && (
         <TouchableOpacity onPress={onTogglePass}>
-          <Text style={s.eyeIcon}>{showPass ? "○" : "●"}</Text>
+          <Text className="pl-2 text-xs text-muted">
+            {showPass ? "○" : "●"}
+          </Text>
         </TouchableOpacity>
       )}
     </View>
@@ -99,38 +90,43 @@ function AuthInput({
 function PrimaryButton({ label, onPress, disabled }) {
   return (
     <TouchableOpacity
-      style={[s.primaryBtn, disabled && { opacity: 0.6 }]}
+      className={`items-center rounded-[14px] bg-accent py-4 ${disabled ? "opacity-60" : ""}`}
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={s.primaryBtnText}>{label}</Text>
+      <Text className="text-base font-bold text-black">{label}</Text>
     </TouchableOpacity>
   );
 }
 
 function GhostButton({ label, onPress }) {
   return (
-    <TouchableOpacity style={s.ghostBtn} onPress={onPress}>
-      <Text style={s.ghostBtnText}>{label}</Text>
+    <TouchableOpacity
+      className="items-center rounded-[14px] border border-line-deep bg-surface-deep py-4"
+      onPress={onPress}
+    >
+      <Text className="text-base font-medium text-white">{label}</Text>
     </TouchableOpacity>
   );
 }
 
 function SocialButton({ label, iconChar }) {
   return (
-    <TouchableOpacity style={s.socialBtn}>
-      <Text style={s.socialIcon}>{iconChar}</Text>
-      <Text style={s.socialLabel}>{label}</Text>
+    <TouchableOpacity className="flex-row items-center justify-center gap-2.5 rounded-[14px] border border-line-deep bg-surface-deep py-[15px]">
+      <Text className="w-[22px] text-center text-[17px] font-bold text-white">
+        {iconChar}
+      </Text>
+      <Text className="text-[15px] font-medium text-white">{label}</Text>
     </TouchableOpacity>
   );
 }
 
 function OrDivider() {
   return (
-    <View style={s.dividerRow}>
-      <View style={s.dividerLine} />
-      <Text style={s.dividerLabel}>or continue with</Text>
-      <View style={s.dividerLine} />
+    <View className="my-0.5 flex-row items-center">
+      <View className="h-px flex-1 bg-line-deep" />
+      <Text className="mx-3 text-xs text-muted">or continue with</Text>
+      <View className="h-px flex-1 bg-line-deep" />
     </View>
   );
 }
@@ -142,9 +138,12 @@ function PasswordRules({ password }) {
     { label: "Include an uppercase letter", ok: /[A-Z]/.test(password) },
   ];
   return (
-    <View style={s.rulesList}>
+    <View className="mt-0.5 gap-[5px]">
       {rules.map((r) => (
-        <Text key={r.label} style={[s.ruleItem, r.ok && s.ruleOk]}>
+        <Text
+          key={r.label}
+          className={`text-xs ${r.ok ? "text-accent" : "text-muted"}`}
+        >
           {r.ok ? "✓" : "·"} {r.label}
         </Text>
       ))}
@@ -155,12 +154,12 @@ function PasswordRules({ password }) {
 function LogoMark({ size = 56 }) {
   return (
     <View
-      style={[
-        s.logoCircle,
-        { width: size, height: size, borderRadius: size / 2 },
-      ]}
+      className="items-center justify-center border-2 border-accent"
+      style={{ width: size, height: size, borderRadius: size / 2 }}
     >
-      <Text style={[s.logoTriangle, { fontSize: size * 0.38 }]}>▲</Text>
+      <Text className="font-bold text-accent" style={{ fontSize: size * 0.38 }}>
+        ▲
+      </Text>
     </View>
   );
 }
@@ -168,32 +167,32 @@ function LogoMark({ size = 56 }) {
 // ─── Screen 1 · Splash ────────────────────────────────────────────────────────
 function SplashScreen({ onNavigate }) {
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: C.bg }]}>
+    <SafeAreaView className="flex-1 bg-background">
       {/* Hero area */}
-      <View style={s.splashHero}>
+      <View
+        className="items-center justify-end pb-6 pt-10"
+        style={{ height: height * 0.42 }}
+      >
         {/* Stylised wireframe human — geometric rings */}
-        <View style={s.wireframeWrap}>
+        <View className="mb-6 h-40 w-[120px] items-center">
           {[110, 86, 64, 44].map((d, i) => (
             <View
               key={i}
-              style={[
-                s.wireframeRing,
-                {
-                  width: d,
-                  height: d,
-                  borderRadius: d / 2,
-                  opacity: 1 - i * 0.18,
-                  position: "absolute",
-                  top: i * 14,
-                },
-              ]}
+              className="absolute self-center border-[1.5px] border-accent"
+              style={{
+                width: d,
+                height: d,
+                borderRadius: d / 2,
+                opacity: 1 - i * 0.18,
+                top: i * 14,
+              }}
             />
           ))}
           {/* Vertical body lines */}
-          <View style={s.wireframeBodyLine} />
-          <View style={[s.wireframeBodyLine, { left: "52%" }]} />
+          <View className="absolute bottom-0 left-[46%] h-[70px] w-[1.5px] bg-accent opacity-50" />
+          <View className="absolute bottom-0 left-[52%] h-[70px] w-[1.5px] bg-accent opacity-50" />
           {/* Shoulder line */}
-          <View style={s.wireframeShoulderLine} />
+          <View className="absolute bottom-[55px] h-[1.5px] w-[90px] bg-accent opacity-50" />
         </View>
 
         {/* Logo below wireframe */}
@@ -201,23 +200,30 @@ function SplashScreen({ onNavigate }) {
       </View>
 
       {/* Text block */}
-      <View style={s.splashText}>
-        <Text style={s.splashH1}>Your habits.{"\n"}Your health.</Text>
-        <Text style={s.splashGreen}>Your best self.</Text>
-        <Text style={s.splashSub}>
+      <View className="px-7">
+        <Text className="text-[34px] font-bold leading-[42px] text-white">
+          Your habits.{"\n"}Your health.
+        </Text>
+        <Text className="mb-3.5 text-[34px] font-bold text-accent">
+          Your best self.
+        </Text>
+        <Text className="text-[15px] leading-[22px] text-muted">
           Track. Train. Transform.{"\n"}All in one place.
         </Text>
       </View>
 
       {/* Dot indicators */}
-      <View style={s.dotsRow}>
+      <View className="my-6 flex-row justify-center gap-2">
         {[0, 1, 2].map((i) => (
-          <View key={i} style={[s.dot, i === 0 && s.dotActive]} />
+          <View
+            key={i}
+            className={`h-2 rounded-full ${i === 0 ? "w-6 bg-accent" : "w-2 bg-muted-dim"}`}
+          />
         ))}
       </View>
 
       {/* Actions */}
-      <View style={s.splashActions}>
+      <View className="gap-3 px-6 pb-8">
         <PrimaryButton
           label="Create Account"
           onPress={() => onNavigate(SCREENS.ONBOARDING)}
@@ -252,35 +258,47 @@ const FEATURES = [
 
 function OnboardingScreen({ onNavigate }) {
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView
-        contentContainerStyle={s.onboardScroll}
+        contentContainerClassName="px-6 pt-10 pb-9"
         showsVerticalScrollIndicator={false}
       >
-        <View style={s.onboardHeader}>
+        <View className="mb-8 items-center">
           <LogoMark size={64} />
-          <Text style={s.onboardWelcome}>Welcome to</Text>
-          <Text style={s.onboardBrand}>AI Coach</Text>
-          <Text style={s.onboardSub}>
+          <Text className="mt-4 text-[22px] font-medium text-white">
+            Welcome to
+          </Text>
+          <Text className="text-[26px] font-bold text-accent">AI Coach</Text>
+          <Text className="mt-2 text-center text-sm leading-5 text-muted">
             Your personal health{"\n"}and fitness companion.
           </Text>
         </View>
 
-        <View style={s.featureList}>
+        <View className="mb-7 gap-3">
           {FEATURES.map((f) => (
-            <View key={f.title} style={s.featureCard}>
-              <View style={[s.featureIconWrap, { backgroundColor: f.bg }]}>
-                <Text style={s.featureIcon}>{f.icon}</Text>
+            <View
+              key={f.title}
+              className="flex-row items-center gap-3.5 rounded-[14px] border border-line-deep bg-surface-deep p-4"
+            >
+              <View
+                className="h-12 w-12 items-center justify-center rounded-xl"
+                style={{ backgroundColor: f.bg }}
+              >
+                <Text className="text-[22px]">{f.icon}</Text>
               </View>
-              <View style={s.featureText}>
-                <Text style={s.featureTitle}>{f.title}</Text>
-                <Text style={s.featureDesc}>{f.desc}</Text>
+              <View className="flex-1">
+                <Text className="mb-1 text-[15px] font-semibold text-white">
+                  {f.title}
+                </Text>
+                <Text className="text-[13px] leading-[18px] text-muted">
+                  {f.desc}
+                </Text>
               </View>
             </View>
           ))}
         </View>
 
-        <View style={s.onboardActions}>
+        <View className="mb-5 gap-3">
           <PrimaryButton
             label="Create Account"
             onPress={() => onNavigate(SCREENS.REGISTER)}
@@ -291,10 +309,10 @@ function OnboardingScreen({ onNavigate }) {
           />
         </View>
 
-        <Text style={s.termsText}>
+        <Text className="text-center text-xs leading-[18px] text-muted">
           By continuing, you agree to our{" "}
-          <Text style={s.termsLink}>Terms of Use</Text> and{" "}
-          <Text style={s.termsLink}>Privacy Policy</Text>.
+          <Text className="text-accent">Terms of Use</Text> and{" "}
+          <Text className="text-accent">Privacy Policy</Text>.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -318,23 +336,23 @@ function LoginScreen({ onNavigate }) {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={s.formScroll}
+          contentContainerClassName="flex-grow px-6 pt-5 pb-10"
           keyboardShouldPersistTaps="handled"
         >
           <BackButton onPress={() => onNavigate(SCREENS.ONBOARDING)} />
 
-          <Text style={s.formTitle}>Log In</Text>
-          <Text style={s.formSub}>
+          <Text className="mb-2 text-[28px] font-bold text-white">Log In</Text>
+          <Text className="mb-7 text-sm leading-5 text-muted">
             Welcome back! Please log in to continue.
           </Text>
 
-          <View style={s.form}>
+          <View className="gap-3">
             <AuthInput
               iconChar="✉"
               placeholder="Email"
@@ -354,12 +372,14 @@ function LoginScreen({ onNavigate }) {
 
             <TouchableOpacity
               onPress={() => onNavigate(SCREENS.RESET)}
-              style={s.forgotRow}
+              className="-mt-1 items-end"
             >
-              <Text style={s.forgotLink}>Forgot password?</Text>
+              <Text className="text-[13px] text-accent">Forgot password?</Text>
             </TouchableOpacity>
 
-            {error ? <Text style={s.errorMsg}>{error}</Text> : null}
+            {error ? (
+              <Text className="mt-0.5 text-[13px] text-danger">{error}</Text>
+            ) : null}
 
             <PrimaryButton
               label={loading ? "Logging in…" : "Log In"}
@@ -370,10 +390,14 @@ function LoginScreen({ onNavigate }) {
             <SocialButton label="Google" iconChar="G" />
             <SocialButton label="Apple" iconChar="" />
 
-            <View style={s.switchRow}>
-              <Text style={s.switchText}>Don't have an account? </Text>
+            <View className="mt-1 flex-row justify-center">
+              <Text className="text-[13px] text-muted">
+                Don't have an account?{" "}
+              </Text>
               <TouchableOpacity onPress={() => onNavigate(SCREENS.REGISTER)}>
-                <Text style={s.switchLink}>Register</Text>
+                <Text className="text-[13px] font-semibold text-accent">
+                  Register
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -408,23 +432,25 @@ function RegisterScreen({ onNavigate }) {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={s.formScroll}
+          contentContainerClassName="flex-grow px-6 pt-5 pb-10"
           keyboardShouldPersistTaps="handled"
         >
           <BackButton onPress={() => onNavigate(SCREENS.LOGIN)} />
 
-          <Text style={s.formTitle}>Create Account</Text>
-          <Text style={s.formSub}>
+          <Text className="mb-2 text-[28px] font-bold text-white">
+            Create Account
+          </Text>
+          <Text className="mb-7 text-sm leading-5 text-muted">
             Let's get started on your health journey.
           </Text>
 
-          <View style={s.form}>
+          <View className="gap-3">
             <AuthInput
               iconChar="👤"
               placeholder="Full Name"
@@ -460,7 +486,9 @@ function RegisterScreen({ onNavigate }) {
 
             <PasswordRules password={password} />
 
-            {error ? <Text style={s.errorMsg}>{error}</Text> : null}
+            {error ? (
+              <Text className="mt-0.5 text-[13px] text-danger">{error}</Text>
+            ) : null}
 
             <PrimaryButton
               label={loading ? "Creating…" : "Create Account"}
@@ -471,10 +499,14 @@ function RegisterScreen({ onNavigate }) {
             <SocialButton label="Google" iconChar="G" />
             <SocialButton label="Apple" iconChar="" />
 
-            <View style={s.switchRow}>
-              <Text style={s.switchText}>Already have an account? </Text>
+            <View className="mt-1 flex-row justify-center">
+              <Text className="text-[13px] text-muted">
+                Already have an account?{" "}
+              </Text>
               <TouchableOpacity onPress={() => onNavigate(SCREENS.LOGIN)}>
-                <Text style={s.switchLink}>Log In</Text>
+                <Text className="text-[13px] font-semibold text-accent">
+                  Log In
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -498,30 +530,32 @@ function ResetScreen({ onNavigate }) {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={[s.formScroll, s.centeredScroll]}
+          contentContainerClassName="flex-grow items-stretch px-6 pt-5 pb-10"
           keyboardShouldPersistTaps="handled"
         >
           <BackButton onPress={() => onNavigate(SCREENS.LOGIN)} />
 
-          <View style={s.iconBlock}>
-            <View style={s.iconCircle}>
-              <Text style={s.iconLarge}>🔏</Text>
+          <View className="mb-5 items-center">
+            <View className="h-[90px] w-[90px] items-center justify-center rounded-full border border-line-deep bg-surface-deep">
+              <Text className="text-[38px]">🔏</Text>
             </View>
           </View>
 
-          <Text style={[s.formTitle, s.textCenter]}>Reset Password</Text>
-          <Text style={[s.formSub, s.textCenter]}>
+          <Text className="mb-2 text-center text-[28px] font-bold text-white">
+            Reset Password
+          </Text>
+          <Text className="mb-7 text-center text-sm leading-5 text-muted">
             Enter your email address and we'll send you a link to reset your
             password.
           </Text>
 
-          <View style={s.form}>
+          <View className="gap-3">
             <AuthInput
               iconChar="✉"
               placeholder="Email"
@@ -531,7 +565,7 @@ function ResetScreen({ onNavigate }) {
             />
 
             {sent && (
-              <Text style={s.successMsg}>
+              <Text className="mt-0.5 text-[13px] text-accent">
                 Reset link sent! Check your inbox.
               </Text>
             )}
@@ -544,9 +578,11 @@ function ResetScreen({ onNavigate }) {
 
             <TouchableOpacity
               onPress={() => onNavigate(SCREENS.LOGIN)}
-              style={s.backLinkRow}
+              className="items-center pt-1"
             >
-              <Text style={s.switchLink}>Back to Log In</Text>
+              <Text className="text-[13px] font-semibold text-accent">
+                Back to Log In
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -579,32 +615,34 @@ function SetPasswordScreen({ onNavigate }) {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={[s.formScroll, s.centeredScroll]}
+          contentContainerClassName="flex-grow items-stretch px-6 pt-5 pb-10"
           keyboardShouldPersistTaps="handled"
         >
           <BackButton onPress={() => onNavigate(SCREENS.RESET)} />
 
-          <View style={s.iconBlock}>
-            <View style={s.iconCircle}>
-              <Text style={s.iconLarge}>🔐</Text>
-              <View style={s.checkBadge}>
-                <Text style={s.checkMark}>✓</Text>
+          <View className="mb-5 items-center">
+            <View className="h-[90px] w-[90px] items-center justify-center rounded-full border border-line-deep bg-surface-deep">
+              <Text className="text-[38px]">🔐</Text>
+              <View className="absolute bottom-0.5 right-0.5 h-6 w-6 items-center justify-center rounded-full bg-accent">
+                <Text className="text-[13px] font-bold text-black">✓</Text>
               </View>
             </View>
           </View>
 
-          <Text style={[s.formTitle, s.textCenter]}>Set New Password</Text>
-          <Text style={[s.formSub, s.textCenter]}>
+          <Text className="mb-2 text-center text-[28px] font-bold text-white">
+            Set New Password
+          </Text>
+          <Text className="mb-7 text-center text-sm leading-5 text-muted">
             Enter your new password below.
           </Text>
 
-          <View style={s.form}>
+          <View className="gap-3">
             <AuthInput
               iconChar="🔒"
               placeholder="New Password"
@@ -626,9 +664,13 @@ function SetPasswordScreen({ onNavigate }) {
 
             <PasswordRules password={newPass} />
 
-            {error && <Text style={s.errorMsg}>{error}</Text>}
+            {error && (
+              <Text className="mt-0.5 text-[13px] text-danger">{error}</Text>
+            )}
             {done && (
-              <Text style={s.successMsg}>Password updated! Redirecting…</Text>
+              <Text className="mt-0.5 text-[13px] text-accent">
+                Password updated! Redirecting…
+              </Text>
             )}
 
             <PrimaryButton
@@ -639,9 +681,11 @@ function SetPasswordScreen({ onNavigate }) {
 
             <TouchableOpacity
               onPress={() => onNavigate(SCREENS.LOGIN)}
-              style={s.backLinkRow}
+              className="items-center pt-1"
             >
-              <Text style={s.switchLink}>Back to Log In</Text>
+              <Text className="text-[13px] font-semibold text-accent">
+                Back to Log In
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -669,397 +713,3 @@ export default function AuthNavigator() {
     </>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-
-  // ── Splash ──────────────────────────────────────
-  splashHero: {
-    alignItems: "center",
-    paddingTop: 40,
-    paddingBottom: 24,
-    height: height * 0.42,
-    justifyContent: "flex-end",
-  },
-  wireframeWrap: {
-    width: 120,
-    height: 160,
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  wireframeRing: {
-    borderWidth: 1.5,
-    borderColor: C.green,
-    alignSelf: "center",
-  },
-  wireframeBodyLine: {
-    position: "absolute",
-    bottom: 0,
-    left: "46%",
-    width: 1.5,
-    height: 70,
-    backgroundColor: C.green,
-    opacity: 0.5,
-  },
-  wireframeShoulderLine: {
-    position: "absolute",
-    bottom: 55,
-    width: 90,
-    height: 1.5,
-    backgroundColor: C.green,
-    opacity: 0.5,
-  },
-  splashText: {
-    paddingHorizontal: 28,
-  },
-  splashH1: {
-    color: C.white,
-    fontSize: 34,
-    fontWeight: "700",
-    lineHeight: 42,
-  },
-  splashGreen: {
-    color: C.green,
-    fontSize: 34,
-    fontWeight: "700",
-    marginBottom: 14,
-  },
-  splashSub: {
-    color: C.gray,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginVertical: 24,
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: C.grayDim,
-  },
-  dotActive: {
-    backgroundColor: C.green,
-    width: 24,
-  },
-  splashActions: {
-    paddingHorizontal: 24,
-    gap: 12,
-    paddingBottom: 32,
-  },
-
-  // ── Onboarding ──────────────────────────────────
-  onboardScroll: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 36,
-  },
-  onboardHeader: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  onboardWelcome: {
-    color: C.white,
-    fontSize: 22,
-    fontWeight: "500",
-    marginTop: 16,
-  },
-  onboardBrand: {
-    color: C.green,
-    fontSize: 26,
-    fontWeight: "700",
-  },
-  onboardSub: {
-    color: C.gray,
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  featureList: {
-    gap: 12,
-    marginBottom: 28,
-  },
-  featureCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
-    gap: 14,
-  },
-  featureIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featureIcon: { fontSize: 22 },
-  featureText: { flex: 1 },
-  featureTitle: {
-    color: C.white,
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  featureDesc: {
-    color: C.gray,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  onboardActions: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  termsText: {
-    color: C.gray,
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  termsLink: {
-    color: C.green,
-  },
-
-  // ── Form screens (Login / Register / Reset) ──────
-  formScroll: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-  centeredScroll: {
-    alignItems: "stretch",
-  },
-  backBtn: {
-    marginBottom: 28,
-    width: 36,
-  },
-  backArrow: {
-    color: C.white,
-    fontSize: 24,
-  },
-  formTitle: {
-    color: C.white,
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  formSub: {
-    color: C.gray,
-    fontSize: 14,
-    marginBottom: 28,
-    lineHeight: 20,
-  },
-  textCenter: {
-    textAlign: "center",
-  },
-  form: {
-    gap: 12,
-  },
-
-  // ── Input ───────────────────────────────────────
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 15,
-  },
-  inputIcon: {
-    fontSize: 15,
-    marginRight: 10,
-    color: C.gray,
-    width: 20,
-    textAlign: "center",
-  },
-  inputField: {
-    flex: 1,
-    color: C.white,
-    fontSize: 15,
-  },
-  eyeIcon: {
-    color: C.gray,
-    fontSize: 12,
-    paddingLeft: 8,
-  },
-
-  // ── Buttons ─────────────────────────────────────
-  primaryBtn: {
-    backgroundColor: C.green,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  primaryBtnText: {
-    color: "#000",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  ghostBtn: {
-    backgroundColor: C.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  ghostBtnText: {
-    color: C.white,
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  socialBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingVertical: 15,
-    gap: 10,
-  },
-  socialIcon: {
-    color: C.white,
-    fontSize: 17,
-    fontWeight: "700",
-    width: 22,
-    textAlign: "center",
-  },
-  socialLabel: {
-    color: C.white,
-    fontSize: 15,
-    fontWeight: "500",
-  },
-
-  // ── Divider ─────────────────────────────────────
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 2,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: C.border,
-  },
-  dividerLabel: {
-    color: C.gray,
-    fontSize: 12,
-    marginHorizontal: 12,
-  },
-
-  // ── Forgot / switch ──────────────────────────────
-  forgotRow: {
-    alignItems: "flex-end",
-    marginTop: -4,
-  },
-  forgotLink: {
-    color: C.green,
-    fontSize: 13,
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  switchText: {
-    color: C.gray,
-    fontSize: 13,
-  },
-  switchLink: {
-    color: C.green,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  backLinkRow: {
-    alignItems: "center",
-    paddingTop: 4,
-  },
-
-  // ── Password rules ───────────────────────────────
-  rulesList: {
-    gap: 5,
-    marginTop: 2,
-  },
-  ruleItem: {
-    color: C.gray,
-    fontSize: 12,
-  },
-  ruleOk: {
-    color: C.green,
-  },
-
-  // ── Error / success ──────────────────────────────
-  errorMsg: {
-    color: C.red,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  successMsg: {
-    color: C.green,
-    fontSize: 13,
-    marginTop: 2,
-  },
-
-  // ── Logo mark ────────────────────────────────────
-  logoCircle: {
-    borderWidth: 2,
-    borderColor: C.green,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoTriangle: {
-    color: C.green,
-    fontWeight: "700",
-  },
-
-  // ── Icon block (reset screens) ───────────────────
-  iconBlock: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  iconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconLarge: {
-    fontSize: 38,
-  },
-  checkBadge: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: C.green,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkMark: {
-    color: "#000",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-});

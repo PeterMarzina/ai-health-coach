@@ -1,5 +1,6 @@
+import "./src/global.css";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, SafeAreaView, StyleSheet } from "react-native";
+import { ActivityIndicator, SafeAreaView } from "react-native";
 import HomeScreen from "./src/screens/HomeScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import { supabase } from "./src/lib/supabase";
@@ -33,7 +34,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
+      <SafeAreaView className="flex-1 items-center justify-center">
         <ActivityIndicator />
       </SafeAreaView>
     );
@@ -41,7 +42,3 @@ export default function App() {
 
   return session ? <HomeScreen /> : <LoginScreen />;
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-});
