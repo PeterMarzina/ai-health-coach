@@ -14,6 +14,19 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    // Compatibility aliases used across the app
+    bg: '#ffffff',
+    card: '#ffffff',
+    cardLo: '#FBFBFD',
+    accent: '#208AEF',
+    accentSoft: '#E6F2FF',
+    accentText: '#FFFFFF',
+    onAccent: '#FFFFFF',
+    track: '#E9EEF6',
+    line: '#E6E9EE',
+    dim: '#8A8A8F',
+    sub: '#60646C',
+    faint: '#F4F6F8',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +34,19 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    // Compatibility aliases used across the app
+    bg: '#000000',
+    card: '#121214',
+    cardLo: '#18181A',
+    accent: '#208AEF',
+    accentSoft: '#153b5a',
+    accentText: '#FFFFFF',
+    onAccent: '#FFFFFF',
+    track: '#1F2933',
+    line: '#2A2D31',
+    dim: '#9AA0A6',
+    sub: '#B0B4BA',
+    faint: '#0B0C0D',
   },
 } as const;
 
@@ -63,3 +89,8 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// Backwards-compatible exports expected by other files
+export const LIGHT = Colors.light;
+export const DARK = Colors.dark;
+export type Palette = Record<string, string>;
