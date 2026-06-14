@@ -2,18 +2,28 @@
 // Toont avatar + naam/e-mail, een statistiek-overzicht en een menu naar
 // Goals en Measurements. Rechtsboven wissel je met de zon/maan-knop tussen
 // licht en donker thema (toggle() uit useTheme).
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Placeholder } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useTheme } from '@/components/store';
+import { useTheme, useLang } from '@/components/store';
 import { DATA } from '@/constants/data';
+import { supabase } from '../../src/lib/supabase'; // backend (Supabase)
 
 export default function Profile() {
   const { c, mode, toggle } = useTheme();
+  const { lang, setLang, t } = useLang();
   const router = useRouter();
+  // Het echte e-mailadres van de ingelogde gebruiker (uit de Supabase-sessie).
+  const [email, setEmail] = useState('');
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ''));
+  }, []);
+
+  // Uitloggen: Supabase wist de sessie; de auth-poort stuurt je daarna naar login.
+  const handleLogout = () => supabase.auth.signOut();
 
   return (
     <Screen scroll={false} padTop={0}>
@@ -24,9 +34,16 @@ export default function Profile() {
             <Icon name="gear" size={19} color={c.sub} />
           </TouchableOpacity>
           <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Profile</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={toggle} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={mode === 'dark' ? 'sun' : 'moon'} size={18} color={c.sub} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {/* Taalknop: wisselt tussen Nederlands en Engels */}
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setLang(lang === 'nl' ? 'en' : 'nl')} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: c.sub }}>{lang.toUpperCase()}</Text>
+            </TouchableOpacity>
+            {/* Licht/donker-knop */}
+            <TouchableOpacity activeOpacity={0.7} onPress={toggle} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={mode === 'dark' ? 'sun' : 'moon'} size={18} color={c.sub} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* avatar + identity */}
@@ -39,7 +56,7 @@ export default function Profile() {
           </View>
           <View>
             <Text style={{ fontSize: 23, fontWeight: '800', color: c.text, letterSpacing: -0.4 }}>{DATA.user.name}</Text>
-            <Text style={{ fontSize: 13.5, color: c.sub, marginTop: 2 }}>{DATA.user.email}</Text>
+            <Text style={{ fontSize: 13.5, color: c.sub, marginTop: 2 }}>{email || DATA.user.email}</Text>
           </View>
         </View>
 
@@ -70,9 +87,9 @@ export default function Profile() {
 
         <View style={{ flex: 1 }} />
 
-        <TouchableOpacity activeOpacity={0.8} style={{ height: 50, borderRadius: 15, borderWidth: 1, borderColor: c.bad, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+        <TouchableOpacity activeOpacity={0.8} onPress={handleLogout} style={{ height: 50, borderRadius: 15, borderWidth: 1, borderColor: c.bad, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 12 }}>
           <Icon name="logout" size={18} color={c.bad} />
-          <Text style={{ color: c.bad, fontSize: 15, fontWeight: '700' }}>Log Out</Text>
+          <Text style={{ color: c.bad, fontSize: 15, fontWeight: '700' }}>{t('log_out')}</Text>
         </TouchableOpacity>
       </View>
     </Screen>

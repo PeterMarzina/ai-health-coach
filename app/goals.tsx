@@ -18,7 +18,7 @@ export default function Goals() {
   const [vals, setVals] = useState(goals);
 
   const items = [
-    { key: 'calories', label: 'Daily Calories', unit: 'kcal', hint: '2000–3000' },
+    { key: 'calories', label: 'Daily Calories', unit: 'kcal', hint: '1200–3000' },
     { key: 'protein', label: 'Daily Protein', unit: 'g', hint: '100–200' },
     { key: 'water', label: 'Daily Water', unit: 'L', hint: '1.5–3.0' },
     { key: 'steps', label: 'Daily Steps', unit: 'steps', hint: '5000–15000' },
