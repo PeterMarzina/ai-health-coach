@@ -1,4 +1,7 @@
-// app/_layout.tsx — root stack + providers
+// app/_layout.tsx — het fundament van de hele app
+// Dit bestand wordt als eerste geladen. Het wikkelt alle schermen in "providers"
+// (gebaren, veilige zone, thema, instellingen) en definieert de navigatie-stack.
+// De providers zorgen dat o.a. de kleuren overal beschikbaar zijn.
 import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

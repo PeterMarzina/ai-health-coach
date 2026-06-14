@@ -1,4 +1,7 @@
-// constants/data.ts — hardcoded mock data
+// constants/data.ts — alle voorbeeld-data (mock, vast ingetypt)
+// Hier staan de getallen die de schermen tonen: score, stats, weekdagen, habits, enz.
+// Dit is NEP-data om het ontwerp te laten zien. Later vervang je dit door echte
+// gegevens (bv. uit Supabase). DATA = algemene data, CONSUMED = vandaag gegeten.
 export const DATA = {
   user: { name: 'Jay', email: 'jay@example.com' },
   score: 87,

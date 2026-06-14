@@ -1,4 +1,7 @@
-// components/charts.tsx — animated SVG data viz (react-native-svg)
+// components/charts.tsx — grafieken, getekend met SVG (react-native-svg)
+// Bevat: Ring (ronde voortgangscirkel), Sparkline (mini-lijngrafiekje),
+// LineChart (grote grafiek met assen) en Donut (ringdiagram met segmenten).
+// Alle grafieken animeren zachtjes bij het laden.
 import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Animated } from 'react-native';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop, G, Line, Text as SvgText } from 'react-native-svg';

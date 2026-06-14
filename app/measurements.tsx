@@ -1,4 +1,6 @@
-// app/measurements.tsx — Editable Measurements
+// app/measurements.tsx — Metingen aanpassen
+// Invulvelden voor je lichaamsmetingen (gewicht, vetpercentage, ...). Bij opslaan
+// gaan ze via setMeasurements() uit useSettings() naar de gedeelde instellingen.
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

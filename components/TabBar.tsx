@@ -1,4 +1,7 @@
-// components/TabBar.tsx — custom bottom tab bar w/ floating FAB + Quick Add sheet
+// components/TabBar.tsx — eigen tabbalk onderaan het scherm
+// Toont 4 tabs (Home, Plan, Progress, Profile) met in het midden een ronde "+"-knop.
+// Die "+"-knop opent een uitschuivend menu (AddSheet) met snelle acties.
+// De actieve tab krijgt de accentkleur; de rest is gedimd.
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

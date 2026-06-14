@@ -1,4 +1,7 @@
-// constants/theme.ts — light + dark palettes
+// constants/theme.ts — de kleurenpaletten (licht en donker)
+// 'Palette' beschrijft welke kleuren er bestaan (bg, card, text, accent, ...).
+// LIGHT en DARK vullen die kleuren in. useTheme() kiest automatisch de juiste.
+// withAlpha(kleur, 0.15) maakt een kleur doorzichtiger.
 export type Palette = {
   bg: string;
   card: string;

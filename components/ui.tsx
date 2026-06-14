@@ -1,4 +1,10 @@
-// components/ui.tsx — shared surfaces & controls
+// components/ui.tsx — herbruikbare bouwstenen voor de schermen
+// Card    = kaartje met afgeronde hoeken (klikbaar als je onPress meegeeft)
+// Section = kop boven een blok, met optioneel een actie-link rechts
+// Chip    = klein keuzeknopje (bv. 1W / 1M / 3M)
+// Check   = rond vinkje (aan/uit)
+// Bar     = voortgangsbalk die naar zijn waarde toe animeert
+// Placeholder / Divider = opvulvak en scheidslijntje
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, Platform, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from './store';

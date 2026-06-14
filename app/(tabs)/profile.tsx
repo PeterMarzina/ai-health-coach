@@ -1,4 +1,7 @@
-// app/(tabs)/profile.tsx — Profile
+// app/(tabs)/profile.tsx — Profiel-tab
+// Toont avatar + naam/e-mail, een statistiek-overzicht en een menu naar
+// Goals en Measurements. Rechtsboven wissel je met de zon/maan-knop tussen
+// licht en donker thema (toggle() uit useTheme).
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';

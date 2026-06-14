@@ -1,4 +1,7 @@
-// app/(tabs)/plan.tsx — Plan (sub-tabs, week strip, workout, nutrition, habits)
+// app/(tabs)/plan.tsx — Plan-tab
+// Bovenaan sub-tabs (Overview/Workouts/Nutrition/Habits) die bepalen welke blokken
+// zichtbaar zijn. Toont een weekstrip, de workout van vandaag, je voeding-voortgang
+// en een afvinkbare gewoontes-lijst (habits). De vinkjes onthouden hun stand met useState.
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';

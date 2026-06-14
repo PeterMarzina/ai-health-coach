@@ -1,4 +1,7 @@
-// components/Icon.tsx — line/solid glyph set built on react-native-svg
+// components/Icon.tsx — alle iconen, getekend met SVG
+// Eén component <Icon name="..." /> tekent het juiste pictogram.
+// De lijst 'IconName' hieronder bevat alle beschikbare namen (bell, home, flame, ...).
+// Gebruik: <Icon name="home" size={22} color={c.text} />
 import React from 'react';
 import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 

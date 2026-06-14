@@ -1,4 +1,8 @@
-// components/store.tsx — Theme + Settings providers
+// components/store.tsx — gedeelde "providers" voor thema en instellingen
+// ThemeProvider + useTheme(): geeft elk scherm het juiste kleurenpalet (licht/donker)
+//   en een toggle() om te wisselen. Gebruik in een scherm: const { c } = useTheme();
+// SettingsProvider + useSettings(): bewaart je doelen (goals) en metingen (measurements)
+//   zodat alle schermen ze kunnen lezen én aanpassen.
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { DARK, LIGHT, Palette } from '@/constants/theme';

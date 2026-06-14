@@ -1,4 +1,7 @@
-// app/plan/workout.tsx — Workout Detail w/ live timer
+// app/plan/workout.tsx — Workout-detailscherm met live timer
+// Lijst met oefeningen die je kunt afvinken (exDone). Een timer die elke seconde
+// optelt zolang timerOn aanstaat (via setInterval in useEffect). fmt() maakt er
+// een mm:ss-tijd van. De startknop zet de timer aan/uit.
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

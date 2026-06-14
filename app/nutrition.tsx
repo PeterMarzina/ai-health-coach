@@ -1,4 +1,7 @@
-// app/nutrition.tsx — Nutrition
+// app/nutrition.tsx — Voeding-scherm
+// Toont je dagelijkse inname versus je doelen (calorieën/eiwit/water) met een
+// ronde grafiek (Ring) en balken (Bar). Doelen komen uit useSettings(),
+// de gegeten waarden uit CONSUMED in constants/data.ts (mock).
 import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

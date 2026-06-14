@@ -1,4 +1,7 @@
-// app/(tabs)/progress.tsx — Progress with charts
+// app/(tabs)/progress.tsx — Progress-tab (voortgang in grafieken)
+// Periode-knoppen (1W/1M/3M...), een gewicht-lijngrafiek (LineChart),
+// lichaamssamenstelling als ringdiagram (Donut) en een kracht-blokje met Sparkline.
+// De gekozen periode wordt onthouden met useState (verandert de data nog niet — mock).
 import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

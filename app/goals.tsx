@@ -1,4 +1,6 @@
-// app/goals.tsx — Editable Goals
+// app/goals.tsx — Doelen aanpassen
+// Invulvelden voor je doelen (calorieën, eiwit, water, ...). Bij opslaan worden ze
+// via setGoals() uit useSettings() bewaard, zodat andere schermen de nieuwe waarden zien.
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
