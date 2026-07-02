@@ -18,6 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
       "package": "com.anonymous.aihealthcoach"
     },
     "web": {
@@ -35,7 +36,8 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "reactCompiler": true
