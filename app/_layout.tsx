@@ -11,7 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider, SettingsProvider, LanguageProvider, AuthProvider, useTheme, useAuth } from '@/components/store';
+import { ThemeProvider, SettingsProvider, LanguageProvider, AuthProvider, DailyProvider, useTheme, useAuth } from '@/components/store';
 
 function Nav() {
   const { c, mode } = useTheme();
@@ -55,6 +55,8 @@ function Nav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="plan" />
         <Stack.Screen name="nutrition" />
+        <Stack.Screen name="recovery" />
+        <Stack.Screen name="coach" />
         <Stack.Screen name="goals" />
         <Stack.Screen name="measurements" />
       </Stack>
@@ -70,7 +72,9 @@ export default function RootLayout() {
           <LanguageProvider>
             <AuthProvider>
               <SettingsProvider>
-                <Nav />
+                <DailyProvider>
+                  <Nav />
+                </DailyProvider>
               </SettingsProvider>
             </AuthProvider>
           </LanguageProvider>

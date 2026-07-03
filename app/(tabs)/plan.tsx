@@ -90,8 +90,8 @@ export default function Plan() {
               <Icon name="target" size={24} color={c.accentText} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>Lower Body Strength</Text>
-              <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 2 }}>~45 min · 6 exercises</Text>
+              <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>Today's Workout</Text>
+              <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 2 }}>Tap to start or resume a session</Text>
             </View>
             <Icon name="chevR" size={20} color={c.dim} />
           </Card>

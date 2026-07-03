@@ -11,6 +11,13 @@ import { supabase } from '../src/lib/supabase'; // verbinding met de backend (Su
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { translations, Lang, TKey } from '@/constants/i18n';
 import type { Session } from '@supabase/supabase-js';
+import type { AIProfile } from '@/src/types/aiProfile';
+import type { DailyProgress } from '@/src/types/daily';
+import { emptyDailyProgress, hasAnyActivity } from '@/src/types/daily';
+import { calculateDailyScore, DailyScoreResult } from '@/src/services/dailyScore';
+import { nextStreak as computeNextStreak, toDateKey } from '@/src/services/streak';
+import { XP_REWARDS, levelFromXp, xpIntoLevel } from '@/src/services/xp';
+import { buildTodayFocus, FocusTask } from '@/src/services/todayFocus';
 
 type Mode = 'light' | 'dark';
 
@@ -43,6 +50,10 @@ type SettingsCtx = {
   setGoals: (g: Goals) => void;
   measurements: Measurements;
   setMeasurements: (m: Measurements) => void;
+  // Het "AI profile object" uit onboarding (zie src/types/aiProfile.ts).
+  // null = nog niet geladen/ingevuld.
+  profileContext: AIProfile | null;
+  setProfileContext: (p: AIProfile) => void;
 };
 const SettingsContext = createContext<SettingsCtx | null>(null);
 
@@ -50,19 +61,21 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // Lokale kopie van de gegevens (start met de standaardwaarden).
   const [goals, setGoalsState] = useState<Goals>(DEFAULT_GOALS);
   const [measurements, setMeasurementsState] = useState<Measurements>(DEFAULT_MEASUREMENTS);
+  const [profileContext, setProfileContextState] = useState<AIProfile | null>(null);
   // Wie is er ingelogd? (null = niemand). Nodig om naar de juiste profiel-rij te schrijven.
   const [userId, setUserId] = useState<string | null>(null);
 
-  // ── LADEN: haal de opgeslagen doelen/metingen op uit Supabase ──
+  // ── LADEN: haal de opgeslagen doelen/metingen/AI-profiel op uit Supabase ──
   // Leest de 'profiles'-rij van deze gebruiker. Is een veld leeg, dan blijven de defaults staan.
   async function loadFromSupabase(id: string) {
     const { data } = await supabase
       .from('profiles')
-      .select('goals, measurements')
+      .select('goals, measurements, profile_context')
       .eq('id', id)
       .single();
     if (data?.goals) setGoalsState({ ...DEFAULT_GOALS, ...data.goals });
     if (data?.measurements) setMeasurementsState({ ...DEFAULT_MEASUREMENTS, ...data.measurements });
+    if (data?.profile_context) setProfileContextState(data.profile_context as AIProfile);
   }
 
   // Bij opstarten: kijk of er al iemand is ingelogd, en luister naar in-/uitloggen.
@@ -81,6 +94,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       } else {
         setGoalsState(DEFAULT_GOALS);    // uitgelogd → terug naar standaard
         setMeasurementsState(DEFAULT_MEASUREMENTS);
+        setProfileContextState(null);
       }
     });
     return () => sub.subscription.unsubscribe();
@@ -100,8 +114,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       supabase.from('profiles').upsert({ id: userId, measurements: m, updated_at: new Date() });
     }
   };
+  // Wordt na onboarding aangeroepen; de rij zelf is dan al opgeslagen door onboarding.tsx,
+  // dit houdt alleen de lokale state (voor bv. de AI Coach-kaart) in sync.
+  const setProfileContext = (p: AIProfile) => setProfileContextState(p);
 
-  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements }), [goals, measurements, userId]);
+  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext }), [goals, measurements, profileContext, userId]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
@@ -194,5 +211,178 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth(): AuthCtx {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
+
+// ── Daily loop (Sprint 3): dagscore, focus-lijst, streak & XP ────────
+// Combineert vandaag's voortgang (workout/stappen/water) met het AI-profiel
+// en de doelen tot een dagscore + focus-lijst, en houdt de cumulatieve
+// streak/XP bij op `profiles`. Voortgang van vandaag leeft in `daily_progress`
+// zodat een herstart of ander toestel dezelfde dag laat zien.
+type DailyCtx = {
+  progress: DailyProgress;
+  streakDays: number;
+  xpTotal: number;
+  level: number;
+  xpProgress: { current: number; goal: number };
+  score: DailyScoreResult;
+  focusTasks: FocusTask[];
+  toggleWorkout: () => void;
+  addSteps: (n: number) => void;
+  addWater: (litres: number) => void;
+};
+const DailyContext = createContext<DailyCtx | null>(null);
+
+export function DailyProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+  const { goals, profileContext } = useSettings();
+  const userId = session?.user?.id ?? null;
+  // Simpel gehouden voor v1: één keer bepaald bij het opstarten van deze provider.
+  // Blijft de app open over middernacht heen, dan telt "vandaag" pas na herstart.
+  const [todayKey] = useState(() => toDateKey(new Date()));
+
+  const [progress, setProgress] = useState<DailyProgress>(() => emptyDailyProgress(todayKey));
+  const [streakDays, setStreakDays] = useState(0);
+  const [xpTotal, setXpTotal] = useState(0);
+  const [lastActiveDate, setLastActiveDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      setProgress(emptyDailyProgress(todayKey));
+      setStreakDays(0);
+      setXpTotal(0);
+      setLastActiveDate(null);
+      return;
+    }
+
+    (async () => {
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('streak_days, xp_total, last_active_date')
+        .eq('id', userId)
+        .single();
+      setStreakDays(profileRow?.streak_days ?? 0);
+      setXpTotal(profileRow?.xp_total ?? 0);
+      setLastActiveDate(profileRow?.last_active_date ?? null);
+
+      const { data: dayRow } = await supabase
+        .from('daily_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', todayKey)
+        .maybeSingle();
+      setProgress(dayRow ? {
+        date: dayRow.date,
+        workoutDone: dayRow.workout_done,
+        steps: dayRow.steps,
+        waterL: Number(dayRow.water_l),
+        xpAwarded: dayRow.xp_awarded ?? emptyDailyProgress(todayKey).xpAwarded,
+      } : emptyDailyProgress(todayKey));
+    })();
+  }, [userId, todayKey]);
+
+  // Slaat de nieuwe dagvoortgang op (lokaal + Supabase). `newlyEarnedXp` > 0
+  // betekent dat dit de eerste keer is dat een taak vandaag is voltooid —
+  // dan telt ook de streak mee (max 1x per dag opgehoogd).
+  function commitProgress(next: DailyProgress, newlyEarnedXp: number) {
+    const isFirstActionToday = newlyEarnedXp > 0 && !hasAnyActivity(progress);
+    const nextStreakDays = isFirstActionToday ? computeNextStreak(lastActiveDate, streakDays, todayKey) : streakDays;
+    const nextLastActive = isFirstActionToday ? todayKey : lastActiveDate;
+    const nextXpTotal = xpTotal + newlyEarnedXp;
+
+    setProgress(next);
+    if (isFirstActionToday) {
+      setStreakDays(nextStreakDays);
+      setLastActiveDate(nextLastActive);
+    }
+    if (newlyEarnedXp > 0) setXpTotal(nextXpTotal);
+
+    if (!userId) return;
+    supabase.from('daily_progress').upsert({
+      user_id: userId,
+      date: next.date,
+      workout_done: next.workoutDone,
+      steps: next.steps,
+      water_l: next.waterL,
+      xp_awarded: next.xpAwarded,
+      updated_at: new Date(),
+    });
+    if (newlyEarnedXp > 0) {
+      supabase.from('profiles').upsert({
+        id: userId,
+        xp_total: nextXpTotal,
+        streak_days: nextStreakDays,
+        last_active_date: nextLastActive,
+        updated_at: new Date(),
+      });
+    }
+  }
+
+  const toggleWorkout = () => {
+    const willBeDone = !progress.workoutDone;
+    const justCompleted = willBeDone && !progress.xpAwarded.workout;
+    commitProgress({
+      ...progress,
+      workoutDone: willBeDone,
+      xpAwarded: { ...progress.xpAwarded, workout: progress.xpAwarded.workout || willBeDone },
+    }, justCompleted ? XP_REWARDS.workout : 0);
+  };
+
+  const stepGoal = profileContext?.derived.stepGoal ?? goals.steps;
+  const addSteps = (n: number) => {
+    const steps = Math.max(0, progress.steps + n);
+    const reachedGoal = steps >= stepGoal;
+    const justCompleted = reachedGoal && !progress.xpAwarded.steps;
+    commitProgress({
+      ...progress,
+      steps,
+      xpAwarded: { ...progress.xpAwarded, steps: progress.xpAwarded.steps || reachedGoal },
+    }, justCompleted ? XP_REWARDS.steps : 0);
+  };
+
+  const addWater = (litres: number) => {
+    const waterL = Math.round(Math.max(0, progress.waterL + litres) * 100) / 100;
+    const reachedGoal = waterL >= goals.water;
+    const justCompleted = reachedGoal && !progress.xpAwarded.water;
+    commitProgress({
+      ...progress,
+      waterL,
+      xpAwarded: { ...progress.xpAwarded, water: progress.xpAwarded.water || reachedGoal },
+    }, justCompleted ? XP_REWARDS.water : 0);
+  };
+
+  const score = useMemo(() => calculateDailyScore({
+    workoutDone: progress.workoutDone,
+    steps: progress.steps,
+    stepGoal,
+    waterL: progress.waterL,
+    waterGoalL: goals.water,
+    streakDays,
+  }), [progress, stepGoal, goals.water, streakDays]);
+
+  const focusTasks = useMemo(
+    () => buildTodayFocus(profileContext, progress, { steps: stepGoal, water: goals.water }),
+    [profileContext, progress, stepGoal, goals.water]
+  );
+
+  const value = useMemo<DailyCtx>(() => ({
+    progress,
+    streakDays,
+    xpTotal,
+    level: levelFromXp(xpTotal),
+    xpProgress: xpIntoLevel(xpTotal),
+    score,
+    focusTasks,
+    toggleWorkout,
+    addSteps,
+    addWater,
+  }), [progress, streakDays, xpTotal, score, focusTasks]);
+
+  return <DailyContext.Provider value={value}>{children}</DailyContext.Provider>;
+}
+
+export function useDaily(): DailyCtx {
+  const ctx = useContext(DailyContext);
+  if (!ctx) throw new Error('useDaily must be used within DailyProvider');
   return ctx;
 }

@@ -6,7 +6,7 @@
 // Bar     = voortgangsbalk die naar zijn waarde toe animeert
 // Placeholder / Divider = opvulvak en scheidslijntje
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, Platform, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, TextInput, TextInputProps, TouchableOpacity, Animated, ActivityIndicator, Platform, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from './store';
 import { Icon } from './Icon';
 
@@ -42,6 +42,60 @@ export function Section({
         </TouchableOpacity>
       ) : null}
     </View>
+  );
+}
+
+export function Input({
+  label, style, ...inputProps
+}: { label?: string; style?: StyleProp<ViewStyle> } & TextInputProps) {
+  const { c } = useTheme();
+  return (
+    <View style={style}>
+      {label ? (
+        <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600', marginBottom: 6, marginLeft: 2 }}>{label}</Text>
+      ) : null}
+      <TextInput
+        placeholderTextColor={c.dim}
+        {...inputProps}
+        style={{
+          backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: 14,
+          paddingHorizontal: 15, paddingVertical: 14, fontSize: 15, color: c.text,
+        }}
+      />
+    </View>
+  );
+}
+
+export function Button({
+  label, onPress, loading, disabled, variant = 'accent', icon, style,
+}: {
+  label: string; onPress?: () => void; loading?: boolean; disabled?: boolean;
+  variant?: 'accent' | 'outline'; icon?: React.ComponentProps<typeof Icon>['name']; style?: StyleProp<ViewStyle>;
+}) {
+  const { c } = useTheme();
+  const isAccent = variant === 'accent';
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={[{
+        height: 52, borderRadius: 15, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
+        backgroundColor: isAccent ? c.accent : 'transparent',
+        borderWidth: isAccent ? 0 : 1,
+        borderColor: c.line,
+        opacity: disabled || loading ? 0.7 : 1,
+      }, style]}
+    >
+      {loading ? (
+        <ActivityIndicator color={isAccent ? c.onAccent : c.text} />
+      ) : (
+        <>
+          <Text style={{ color: isAccent ? c.onAccent : c.text, fontSize: 16, fontWeight: '700' }}>{label}</Text>
+          {icon ? <Icon name={icon} size={18} color={isAccent ? c.onAccent : c.text} /> : null}
+        </>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -109,6 +163,35 @@ export function Bar({
   return (
     <View style={{ width: '100%', height, borderRadius: height, backgroundColor: c.track, overflow: 'hidden' }}>
       <Animated.View style={{ width, height: '100%', borderRadius: height, backgroundColor: col }} />
+    </View>
+  );
+}
+
+// Lege staat voor lijsten/grafieken zonder data (bv. nog geen gewicht gelogd).
+// icon = naam uit Icon-set, title = korte kop, body = uitleg, action = optionele knop.
+export function EmptyState({
+  icon, title, body, actionLabel, onAction, style,
+}: {
+  icon?: React.ComponentProps<typeof Icon>['name']; title: string; body?: string;
+  actionLabel?: string; onAction?: () => void; style?: StyleProp<ViewStyle>;
+}) {
+  const { c } = useTheme();
+  return (
+    <View style={[{ alignItems: 'center', justifyContent: 'center', paddingVertical: 28, paddingHorizontal: 16 }, style]}>
+      {icon ? (
+        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+          <Icon name={icon} size={20} color={c.dim} />
+        </View>
+      ) : null}
+      <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text, textAlign: 'center' }}>{title}</Text>
+      {body ? (
+        <Text style={{ fontSize: 12.5, color: c.sub, textAlign: 'center', marginTop: 5, lineHeight: 18 }}>{body}</Text>
+      ) : null}
+      {actionLabel ? (
+        <TouchableOpacity activeOpacity={0.75} onPress={onAction} style={{ marginTop: 14, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 12, backgroundColor: c.accent }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: c.onAccent }}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

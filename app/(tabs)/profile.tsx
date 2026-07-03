@@ -74,8 +74,12 @@ export default function Profile() {
 
         {/* menu */}
         <Card pad={4}>
-          {[{ label: 'Goals', icon: 'target' as const }, { label: 'Measurements', icon: 'ruler' as const }, { label: 'Achievements', icon: 'trophy' as const }].map((m, i) => (
-            <TouchableOpacity key={m.label} activeOpacity={0.75} onPress={() => router.push(m.label === 'Goals' ? '/goals' : '/measurements')} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13, paddingHorizontal: 12, borderBottomWidth: i < 2 ? 1 : 0, borderBottomColor: c.line }}>
+          {[
+            { label: 'Goals', icon: 'target' as const, route: '/goals' as const },
+            { label: 'Measurements', icon: 'ruler' as const, route: '/measurements' as const },
+            { label: 'Recovery', icon: 'moon' as const, route: '/recovery' as const },
+          ].map((m, i, arr) => (
+            <TouchableOpacity key={m.label} activeOpacity={0.75} onPress={() => router.push(m.route)} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13, paddingHorizontal: 12, borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: c.line }}>
               <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={m.icon} size={18} color={c.accentText} />
               </View>

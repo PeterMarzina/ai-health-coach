@@ -27,19 +27,6 @@ export const DATA = {
       { n: 'Calf Raise',        sets: '4 sets · 15–20 reps',          done: false },
     ],
   },
-  nutrition: {
-    macros: [
-      { label: 'Protein', v: 142, goal: 160, unit: 'g', pct: 34, hue: 'protein' },
-      { label: 'Carbs',   v: 251, goal: 300, unit: 'g', pct: 45, hue: 'carbs' },
-      { label: 'Fats',    v: 72,  goal: 80,  unit: 'g', pct: 21, hue: 'fats' },
-    ],
-    meals: [
-      { name: 'Breakfast', items: 'Oatmeal, Banana, Protein Shake', kcal: 612, done: true },
-      { name: 'Lunch',     items: 'Chicken, Rice, Vegetables',      kcal: 720, done: true },
-      { name: 'Dinner',    items: 'Salmon, Quinoa, Broccoli',       kcal: 632, done: false },
-      { name: 'Snack',     items: 'Greek Yogurt, Berries',          kcal: 140, done: false },
-    ],
-  },
   habits: [
     { name: '10,000 Steps', detail: '8,742 / 10,000', icon: 'footsteps', done: true },
     { name: 'No Alcohol',   detail: '0 / 1',           icon: 'leaf',      done: false },
@@ -70,7 +57,10 @@ export const DATA = {
 export const DEFAULT_GOALS = {
   calories: 2400,
   protein: 160,
+  carbs: 300,
+  fats: 80,
   water: 2.5,   // litres
+  sleepHours: 8,
   steps: 10000,
   weightTarget: 75,
 };
