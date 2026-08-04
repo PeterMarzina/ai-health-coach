@@ -96,6 +96,21 @@ aanwezig (geen jest/jest-expo in `package.json`, geen `test`-script).
   streak per **week** (voldaan aan het doel die week = streak+1), niet per dag —
   zodat één gemiste dag geen streak breekt zolang het weekdoel gehaald wordt.
 
+- **Checkpoint-commit voor openstaande werk.** Bij de start van deze sessie
+  stonden er al ongecommitte wijzigingen in de werkmap (AI-coach chat, Plan-tab
+  op echte data i.p.v. mock — niet van mij, niet onderdeel van deze opdracht).
+  Omdat ik een aantal van die bestanden (`workouts.ts`, `plan.tsx`,
+  `exercise-history.tsx`, `_layout.tsx`, `store.tsx`, `charts.tsx`, `i18n.ts`)
+  zelf ook moest wijzigen, heb ik hun bestaande staat eerst als eigen commit
+  vastgelegd ("Checkpoint: ...") vóórdat ik er iets aan toevoegde. Zo blijft
+  mijn eigen diff op die bestanden schoon leesbaar, en gaat er niets verloren.
+- **Geen wire-up in `app/_layout.tsx` voor de notificatie-handler.** In plaats
+  van `ensureNotificationHandler()` eager bij app-start aan te roepen (wat een
+  wijziging in het al-drukke `_layout.tsx` had gevergd), roept
+  `ensureNotificationPermission()` 'm intern aan — die wordt sowieso altijd als
+  eerste aangeroepen vóórdat een rusttimer- of habit-notificatie gepland wordt,
+  dus de handler staat altijd op tijd klaar.
+
 ## Geblokkeerd
 
 *(wordt aangevuld als er iets echt niet te beslissen is)*
