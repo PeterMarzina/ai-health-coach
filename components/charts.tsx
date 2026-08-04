@@ -69,6 +69,9 @@ export function Sparkline({
   const { c } = useTheme();
   const col = color || c.accent;
   const uid = useMemo(() => 'sp' + Math.random().toString(36).slice(2, 7), []);
+  // Met minder dan 2 punten is er geen lijn te tekenen (buildPath zou delen door 0);
+  // hou de ruimte leeg zodat de kaart-layout niet verspringt.
+  if (!data || data.length < 2) return <View style={{ width: w, height: h }} />;
   const d = buildPath(data, w, h, 2);
   const area = `${d} L${w - 2} ${h - 2} L2 ${h - 2} Z`;
   const op = useRef(new Animated.Value(0)).current;

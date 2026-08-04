@@ -90,6 +90,24 @@ export const translations = {
     coach_title: 'AI Coach',
     coach_input_ph: 'Typ een bericht...',
     coach_greeting: 'Hoi! Waar kan ik je mee helpen — voeding, training, slaap of gewicht?',
+    coach_typing: 'Coach denkt na...',
+    coach_error: 'Er ging iets mis bij het ophalen van een antwoord. Probeer het nog eens.',
+    coach_action_plan: 'Je workout-plan is aangepast op basis van dit gesprek',
+    coach_action_lifestyle: 'Lifestyle-aanbeveling vastgelegd',
+    coach_action_nutrition: 'Je voedingsdoelen zijn bijgewerkt',
+
+    // Onboarding via chat (intake-gesprek)
+    ob_chat_button: 'Liever een gesprek? Doe de intake via de chat',
+    intake_title: 'Intake met je coach',
+    intake_saving: 'Profiel opslaan...',
+    intake_done: 'Je profiel en eerste plan staan klaar. Veel succes!',
+    intake_error: 'Kon je profiel niet opslaan. Probeer het opnieuw.',
+
+    // Home / dashboard
+    greet_morning: 'Goedemorgen',
+    greet_afternoon: 'Goedemiddag',
+    greet_evening: 'Goedenavond',
+    home_subtitle: 'Laten we er vandaag voor gaan.',
 
     // Algemeen
     language: 'Taal',
@@ -180,6 +198,24 @@ export const translations = {
     coach_title: 'AI Coach',
     coach_input_ph: 'Type a message...',
     coach_greeting: "Hi! What can I help you with — nutrition, training, sleep, or weight?",
+    coach_typing: 'Coach is thinking...',
+    coach_error: 'Something went wrong while getting a reply. Please try again.',
+    coach_action_plan: 'Your workout plan was updated based on this conversation',
+    coach_action_lifestyle: 'Lifestyle recommendation saved',
+    coach_action_nutrition: 'Your nutrition targets were updated',
+
+    // Onboarding via chat (intake conversation)
+    ob_chat_button: 'Prefer a conversation? Do the intake via chat',
+    intake_title: 'Intake with your coach',
+    intake_saving: 'Saving your profile...',
+    intake_done: 'Your profile and first plan are ready. Good luck!',
+    intake_error: 'Could not save your profile. Please try again.',
+
+    // Home / dashboard
+    greet_morning: 'Good morning',
+    greet_afternoon: 'Good afternoon',
+    greet_evening: 'Good evening',
+    home_subtitle: "Let's crush today.",
 
     // General
     language: 'Language',

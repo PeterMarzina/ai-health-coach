@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Card } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { LineChart } from '@/components/Charts';
+import { LineChart } from '@/components/charts';
 import { useTheme, useAuth } from '@/components/store';
 import { fetchExerciseHistory } from '@/src/services/workouts';
 import type { LoggedSet } from '@/src/types/workout';

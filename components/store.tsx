@@ -54,6 +54,9 @@ type SettingsCtx = {
   // null = nog niet geladen/ingevuld.
   profileContext: AIProfile | null;
   setProfileContext: (p: AIProfile) => void;
+  // Herlaadt goals/measurements/profiel uit Supabase — nodig nadat de AI-coach
+  // via een action tool (bv. adjust_nutrition_targets) server-side iets wijzigde.
+  refreshSettings: () => void;
 };
 const SettingsContext = createContext<SettingsCtx | null>(null);
 
@@ -118,7 +121,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // dit houdt alleen de lokale state (voor bv. de AI Coach-kaart) in sync.
   const setProfileContext = (p: AIProfile) => setProfileContextState(p);
 
-  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext }), [goals, measurements, profileContext, userId]);
+  const refreshSettings = () => {
+    if (userId) loadFromSupabase(userId);
+  };
+
+  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, refreshSettings }), [goals, measurements, profileContext, userId]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 

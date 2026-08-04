@@ -152,6 +152,18 @@ export async function fetchExerciseHistory(userId: string, exerciseId: string): 
   return (data ?? []).map(mapSet);
 }
 
+// Aantal afgeronde trainingen (sessies met een ended_at) van deze gebruiker —
+// voedt de "Workouts / Total"-tegel op het Profiel-scherm.
+export async function fetchCompletedSessionCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('workout_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .not('ended_at', 'is', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 // Totale trainingsvolume (som van reps × gewicht) per dag, over de laatste
 // `days` dagen — voedt de workout-trendgrafiek op het Progress-scherm.
 export async function fetchWorkoutVolumeHistory(userId: string, days: number): Promise<{ date: string; volumeKg: number }[]> {

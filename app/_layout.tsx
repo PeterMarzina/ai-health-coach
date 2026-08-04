@@ -23,7 +23,8 @@ function Nav() {
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
-    const onOnboarding = segments[0] === 'onboarding';
+    // Zowel de formulier-flow als de chat-intake (Sprint 8) tellen als onboarding.
+    const onOnboarding = segments[0] === 'onboarding' || segments[0] === 'onboarding-chat';
 
     if (!session) {
       if (!inAuth) router.replace('/(auth)/login');     // niet ingelogd → login
@@ -52,6 +53,7 @@ function Nav() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'slide_from_right' }}>
         <Stack.Screen name="(auth)/login" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="onboarding-chat" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="plan" />
         <Stack.Screen name="nutrition" />
