@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Card } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { Ring } from '@/components/Charts';
+import { Ring } from '@/components/charts';
 import { useTheme, useSettings, useAuth } from '@/components/store';
 import { todayKey, fetchDailyLog, fetchRecentDailyLogs, upsertDailyLog } from '@/src/services/trackingService';
 import { computeRecoveryScore } from '@/src/services/recoveryScore';

@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Section, Chip, EmptyState } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { LineChart, Donut, Sparkline } from '@/components/Charts';
+import { LineChart, Donut, Sparkline } from '@/components/charts';
 import { useTheme, useSettings, useAuth } from '@/components/store';
 import { todayKey, fetchWeightLogs, logWeight } from '@/src/services/trackingService';
 import { fetchRecentDailyLogs } from '@/src/services/trackingService';

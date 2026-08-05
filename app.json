@@ -40,7 +40,13 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Gebruik de camera om een barcode op een product te scannen."
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true
