@@ -22,6 +22,7 @@ export type LocalSet = {
 };
 
 export type LocalPlannedExercise = {
+  id: string; // = workout_session_exercises.id (client-gegenereerd, zie localId.ts)
   exerciseId: string;
   position: number;
   targetSets: number;

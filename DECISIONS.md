@@ -111,6 +111,15 @@ aanwezig (geen jest/jest-expo in `package.json`, geen `test`-script).
   eerste aangeroepen vóórdat een rusttimer- of habit-notificatie gepland wordt,
   dus de handler staat altijd op tijd klaar.
 
+- **`workoutPlanGenerator.ts` en `app/plan/workout-log.tsx` verwijderd.** De
+  oude "kies push/pull/legs/full_body" generator is vervangen door echte
+  routines (A3) — de geseede routines dekken exact dezelfde 4 templates plus
+  Upper/Lower, maar dan met een écht samengestelde oefeningenlijst i.p.v. een
+  runtime-generatie. `workout-log.tsx` (los scherm om sets te loggen per
+  oefening) is vervangen door inline set-rijen op het actieve-sessiescherm
+  zelf (A1-eis: "Oefeningenlijst met per oefening een setrij"). Geen van
+  beide werd elders gebruikt (gecheckt met een repo-brede grep).
+
 ## Geblokkeerd
 
 *(wordt aangevuld als er iets echt niet te beslissen is)*
