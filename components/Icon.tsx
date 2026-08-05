@@ -9,7 +9,9 @@ export type IconName =
   | 'bell' | 'chevR' | 'chevL' | 'chevDown' | 'flame' | 'target' | 'droplet' | 'moon'
   | 'footsteps' | 'home' | 'plan' | 'chart' | 'user' | 'plus' | 'gear' | 'share'
   | 'leaf' | 'sparkle' | 'chat' | 'check' | 'dumbbell' | 'ruler' | 'trophy' | 'link'
-  | 'logout' | 'camera' | 'up' | 'sun' | 'pause' | 'play' | 'stop' | 'minus' | 'flag';
+  | 'logout' | 'camera' | 'up' | 'sun' | 'pause' | 'play' | 'stop' | 'minus' | 'flag'
+  | 'search' | 'barcode' | 'trash' | 'copy' | 'pencil' | 'close' | 'star' | 'more'
+  | 'utensils' | 'cookie';
 
 type Props = {
   name: IconName;
@@ -57,6 +59,16 @@ export function Icon({ name, size = 22, color = '#fff', strokeWidth = 1.8, fill 
     play: <Path d="M7 5l12 7-12 7V5Z" fill={color} stroke="none" />,
     stop: <Rect x="6" y="6" width="12" height="12" rx="2" fill={color} stroke="none" />,
     flag: <G {...s}><Path d="M6 21V4M6 4h11l-2 4 2 4H6" /></G>,
+    search: <G {...s}><Circle cx="10.5" cy="10.5" r="6.5" /><Path d="M20 20l-5.5-5.5" /></G>,
+    barcode: <G {...s}><Rect x="3" y="5" width="18" height="14" rx="2" /><Path d="M6.5 8v8M9.5 8v8M12 8v8M14.5 8v8M17.5 8v8" /></G>,
+    trash: <G {...s}><Path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /><Path d="M10 11v6M14 11v6" /></G>,
+    copy: <G {...s}><Rect x="8" y="8" width="12" height="12" rx="2" /><Path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></G>,
+    pencil: <Path d="M4 20l4-1 11-11a2 2 0 0 0-3-3L5 16l-1 4Z" {...s} />,
+    close: <Path d="M6 6l12 12M18 6L6 18" {...s} strokeWidth={2.4} />,
+    star: <Path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6-4.6-4.1 6.1-.6Z" fill={solid} stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />,
+    more: <G fill={color}><Circle cx="6" cy="12" r="1.7" /><Circle cx="12" cy="12" r="1.7" /><Circle cx="18" cy="12" r="1.7" /></G>,
+    utensils: <G {...s}><Path d="M8 2v7a1.5 1.5 0 0 0 3 0V2M8 2v4.5M11 2v4.5M9.5 9v13M17 2c-1.8 1-2.5 3-2.5 5.5S16 12 17 12v10" /></G>,
+    cookie: <G><Circle cx="12" cy="12" r="8" {...s} /><Circle cx="9" cy="10" r="1" fill={color} stroke="none" /><Circle cx="14.5" cy="9" r="1" fill={color} stroke="none" /><Circle cx="10" cy="15" r="1" fill={color} stroke="none" /><Circle cx="15" cy="14.5" r="1" fill={color} stroke="none" /></G>,
   };
 
   return (

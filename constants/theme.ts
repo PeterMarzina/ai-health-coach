@@ -19,6 +19,11 @@ export type Palette = {
   onAccent: string;      // text/icon color ON an accent fill
   track: string;         // chart/track background
   bad: string;
+  overlay: string;       // modal/sheet-scrim achtergrond
+  overlayFill: string;   // knop-achtergrond bovenop de overlay (bv. camera-chrome)
+  overlayLine: string;   // rand bovenop de overlay
+  overlayText: string;   // tekst/icoon-kleur bovenop de overlay — altijd leesbaar op donker,
+                          // ongeacht licht/donker-modus van de app zelf (camera-preview is altijd donker)
   // data hues
   calories: string;
   protein: string;
@@ -47,6 +52,10 @@ export const DARK: Palette = {
   onAccent: '#0D0D0D',
   track: 'rgba(255,255,255,0.08)',
   bad: '#F87171',
+  overlay: 'rgba(0,0,0,0.55)',
+  overlayFill: 'rgba(20,20,20,0.6)',
+  overlayLine: 'rgba(255,255,255,0.2)',
+  overlayText: '#FFFFFF',
   calories: '#FB7C4D',
   protein: '#A78BFA',
   carbs: '#FB923C',
@@ -73,6 +82,10 @@ export const LIGHT: Palette = {
   onAccent: '#1A2E05',
   track: 'rgba(0,0,0,0.07)',
   bad: '#DC2626',
+  overlay: 'rgba(0,0,0,0.55)',
+  overlayFill: 'rgba(20,20,20,0.6)',
+  overlayLine: 'rgba(255,255,255,0.2)',
+  overlayText: '#FFFFFF',
   calories: '#EA580C',
   protein: '#7C3AED',
   carbs: '#EA580C',

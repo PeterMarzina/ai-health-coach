@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';        // scrollbaar omhulsel met veilige randen
 import { Card, Section, Check, Bar } from '@/components/ui'; // kaartje + sectiekop + vinkje + balk
 import { Icon } from '@/components/Icon';             // iconen (bell, target, chevR, ...)
-import { Ring, Sparkline } from '@/components/Charts';// ronde grafiek + mini-lijngrafiek
+import { Ring, Sparkline } from '@/components/charts';// ronde grafiek + mini-lijngrafiek
 import { useTheme, useLang, useSettings, useDaily } from '@/components/store'; // thema, taal, AI-profiel, dagelijkse loop
 import { DATA } from '@/constants/data';             // voorbeeld-data (mock)
 import { generateAdvice } from '@/src/services/adviceGenerator';
