@@ -2,5 +2,5 @@
 // Maakt een eenvoudige stack zodat /plan/workout zonder eigen kopbalk opent.
 import { Stack } from 'expo-router';
 export default function PlanLayout() {
-  return <Stack screenOptions={{ headerShown: false, animationEnabled: true }} />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
