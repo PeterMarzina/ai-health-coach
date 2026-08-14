@@ -31,7 +31,15 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env
+.env.*
+!.env.example
+
+# supabase CLI scratch (project refs, versions van de gelinkte omgeving)
+supabase/.temp/
+
+# IDE-caches (machine-specifiek)
+.idea/caches/
 
 # typescript
 *.tsbuildinfo
