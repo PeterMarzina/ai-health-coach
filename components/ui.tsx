@@ -5,8 +5,8 @@
 // Check   = rond vinkje (aan/uit)
 // Bar     = voortgangsbalk die naar zijn waarde toe animeert
 // Placeholder / Divider = opvulvak en scheidslijntje
-import React, { useEffect, useRef } from 'react';
-import { View, Text, TextInput, TextInputProps, TouchableOpacity, Animated, ActivityIndicator, Platform, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TextInput, TextInputProps, TouchableOpacity, Animated, ActivityIndicator, Platform, StyleProp, ViewStyle, useAnimatedValue } from 'react-native';
 import { useTheme } from './store';
 import { Icon } from './Icon';
 
@@ -155,10 +155,10 @@ export function Bar({
   const { c } = useTheme();
   const col = color || c.accent;
   const pct = Math.max(0, Math.min(1, value / max));
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useAnimatedValue(0);
   useEffect(() => {
     Animated.timing(anim, { toValue: pct, duration: 850, delay, useNativeDriver: false }).start();
-  }, [pct, delay]);
+  }, [anim, pct, delay]);
   const width = anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
   return (
     <View style={{ width: '100%', height, borderRadius: height, backgroundColor: c.track, overflow: 'hidden' }}>

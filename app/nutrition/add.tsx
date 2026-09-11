@@ -38,29 +38,33 @@ export default function AddScreen() {
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [own, setOwn] = useState<Product[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  // Aan bij het openen van een lijst-tab (selectTab / eerste render), uit zodra die geladen is.
+  const [loading, setLoading] = useState(tab !== 'all');
 
-  const loadTab = useCallback(async (which: Tab) => {
+  // State pas in de .then: nooit synchroon vanuit het effect dat dit aanroept.
+  const loadTab = useCallback((which: Exclude<Tab, 'all'>) => {
     if (!userId) return;
-    setLoading(true);
-    try {
-      if (which === 'recent') setRecent(await fetchRecentProducts(userId));
-      else if (which === 'favorites') setFavorites(await fetchFavoriteProducts(userId));
-      else if (which === 'own') setOwn(await fetchOwnProducts(userId));
-    } catch (e: any) {
-      Alert.alert(t('err_title'), e.message);
-    } finally {
-      setLoading(false);
-    }
+    const fetcher = which === 'recent' ? fetchRecentProducts : which === 'favorites' ? fetchFavoriteProducts : fetchOwnProducts;
+    const setter = which === 'recent' ? setRecent : which === 'favorites' ? setFavorites : setOwn;
+    fetcher(userId)
+      .then(setter)
+      .catch((e: any) => Alert.alert(t('err_title'), e.message))
+      .finally(() => setLoading(false));
   }, [userId, t]);
 
   useEffect(() => { if (userId) fetchFavoriteProductIds(userId).then(setFavoriteIds).catch(() => {}); }, [userId]);
   useEffect(() => { if (tab !== 'all') loadTab(tab); }, [tab, loadTab]);
 
+  const selectTab = (next: Tab) => {
+    if (next === tab) return;
+    if (next !== 'all') setLoading(true);
+    setTab(next);
+  };
+
   useEffect(() => {
     if (tab !== 'all') return;
     const q = query.trim();
-    if (!q) { setAll([]); return; }
+    if (!q) return; // lege zoekbalk: de lijst toont dan niets (zie `source`)
     const handle = setTimeout(async () => {
       setLoading(true);
       try {
@@ -72,9 +76,9 @@ export default function AddScreen() {
       }
     }, 250); // lichte debounce
     return () => clearTimeout(handle);
-  }, [query, tab]);
+  }, [query, tab, t]);
 
-  const source = tab === 'all' ? all : tab === 'recent' ? recent : tab === 'favorites' ? favorites : own;
+  const source = tab === 'all' ? (query.trim() ? all : []) : tab === 'recent' ? recent : tab === 'favorites' ? favorites : own;
   const filtered = tab === 'all' ? source : source.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   const toggleFavorite = async (product: Product) => {
@@ -130,7 +134,7 @@ export default function AddScreen() {
         {TABS.map((item) => {
           const active = tab === item.key;
           return (
-            <TouchableOpacity key={item.key} activeOpacity={0.7} onPress={() => setTab(item.key)} style={{
+            <TouchableOpacity key={item.key} activeOpacity={0.7} onPress={() => selectTab(item.key)} style={{
               paddingHorizontal: 13, paddingVertical: 8, borderRadius: 10,
               borderWidth: 1, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.accent : 'transparent',
             }}>

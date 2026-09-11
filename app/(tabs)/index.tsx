@@ -4,7 +4,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useRouter, useFocusEffect } from 'expo-router';
 
 // ── Eigen bouwstenen en data ophalen ──────────────────────────────
@@ -96,13 +96,16 @@ export default function Home() {
   // ── AI-coach: rule-based advies meteen tonen, vervangen door het NVIDIA-advies
   // zodra dat binnen is. Faalt de call (limiet, geen netwerk), dan blijft rule-based staan.
   const advice = profileContext ? generateAdvice(profileContext, lang) : null;
-  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  // Het advies onthoudt voor welke gebruiker + taal het is; bij een wissel valt het
+  // meteen terug op rule-based, zonder dat het effect state hoeft te resetten.
+  const adviceKey = `${userId}:${lang}`;
+  const [aiAdviceState, setAiAdviceState] = useState<{ key: string; text: string } | null>(null);
+  const aiAdvice = aiAdviceState?.key === adviceKey ? aiAdviceState.text : null;
   useEffect(() => {
-    setAiAdvice(null);
     if (!userId || !profileContext) return;
     let cancelled = false;
     getDailyAIAdvice(userId, profileContext, lang)
-      .then((text) => { if (!cancelled) setAiAdvice(text || null); })
+      .then((text) => { if (!cancelled && text) setAiAdviceState({ key: `${userId}:${lang}`, text }); })
       .catch((e) => console.warn('AI-advies ophalen mislukt', e));
     return () => { cancelled = true; };
   }, [userId, profileContext, lang]);

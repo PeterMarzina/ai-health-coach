@@ -35,7 +35,7 @@ function Nav() {
       return;
     }
     if (inAuth || onOnboarding) router.replace('/(tabs)'); // alles klaar → de app
-  }, [session, onboarded, loading, segments]);
+  }, [session, onboarded, loading, segments, router]);
 
   // Laad-spinner zolang we de sessie (of het profiel) nog ophalen.
   if (loading || (session && onboarded === null)) {

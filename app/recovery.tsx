@@ -2,7 +2,7 @@
 // Handmatige invoer van slaap (uren + kwaliteit), trainingsbelasting en optioneel
 // een rustpols-meting. Daaruit berekenen we een Recovery Score v1
 // (src/services/recoveryScore.ts) — rule-based, geen wearable-koppeling nodig.
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -56,27 +56,24 @@ export default function Recovery() {
   const [hrBaseline, setHrBaseline] = useState<number | null>(null);
   const [result, setResult] = useState<{ score: number; label: RecoveryLabel } | null>(null);
 
-  const load = useCallback(async () => {
+  // Eén keer laden (vandaag, deze gebruiker): loading start op true en gaat daarna uit.
+  // State pas in de .then, nooit synchroon in het effect.
+  useEffect(() => {
     if (!userId) return;
-    setLoading(true);
-    try {
-      const [today, recent] = await Promise.all([fetchDailyLog(userId, date), fetchRecentDailyLogs(userId, 7)]);
-      if (today.sleepHours != null) setSleepHours(String(today.sleepHours));
-      if (today.sleepQuality != null) setSleepQuality(today.sleepQuality);
-      if (today.trainingLoad != null) setTrainingLoad(today.trainingLoad);
-      if (today.restingHeartRate != null) setRestingHr(String(today.restingHeartRate));
-      if (today.recoveryScore != null) setResult({ score: today.recoveryScore, label: today.recoveryScore >= 75 ? 'high' : today.recoveryScore >= 45 ? 'medium' : 'low' });
+    Promise.all([fetchDailyLog(userId, date), fetchRecentDailyLogs(userId, 7)])
+      .then(([today, recent]) => {
+        if (today.sleepHours != null) setSleepHours(String(today.sleepHours));
+        if (today.sleepQuality != null) setSleepQuality(today.sleepQuality);
+        if (today.trainingLoad != null) setTrainingLoad(today.trainingLoad);
+        if (today.restingHeartRate != null) setRestingHr(String(today.restingHeartRate));
+        if (today.recoveryScore != null) setResult({ score: today.recoveryScore, label: today.recoveryScore >= 75 ? 'high' : today.recoveryScore >= 45 ? 'medium' : 'low' });
 
-      const priorHr = recent.filter((r) => r.date !== date && r.restingHeartRate != null).map((r) => r.restingHeartRate as number);
-      setHrBaseline(priorHr.length >= 2 ? Math.round(priorHr.reduce((a, b) => a + b, 0) / priorHr.length) : null);
-    } catch (e: any) {
-      Alert.alert(t('err_title'), e.message);
-    } finally {
-      setLoading(false);
-    }
+        const priorHr = recent.filter((r) => r.date !== date && r.restingHeartRate != null).map((r) => r.restingHeartRate as number);
+        setHrBaseline(priorHr.length >= 2 ? Math.round(priorHr.reduce((a, b) => a + b, 0) / priorHr.length) : null);
+      })
+      .catch((e: any) => Alert.alert(t('err_title'), e.message))
+      .finally(() => setLoading(false));
   }, [userId, date, t]);
-
-  useEffect(() => { load(); }, [load]);
 
   const num = (s: string) => parseFloat(s.replace(',', '.')) || 0;
   const canSave = num(sleepHours) > 0 && sleepQuality !== null && trainingLoad !== null;

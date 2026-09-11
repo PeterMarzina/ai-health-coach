@@ -78,47 +78,22 @@ export default function WorkoutSessionScreen() {
   const [confirmRemoveExerciseId, setConfirmRemoveExerciseId] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [ending, setEnding] = useState(false);
-  const [now, setNow] = useState(Date.now());
-
-  // ── Laden: kijk of er een sessie te hervatten valt, anders toon routines ──
-  // Komt hier binnen vanaf de routines-lijst (A3) met startRoutineId/-Name?
-  // Dan die routine direct starten i.p.v. nogmaals de lijst te tonen.
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      setLoadingStart(true);
-      try {
-        const resumed = await resumeActiveSession(userId);
-        if (resumed) {
-          setPendingResume(resumed);
-        } else if (params.startRoutineId && params.startRoutineName) {
-          router.setParams({ startRoutineId: undefined, startRoutineName: undefined });
-          await handleStartFromRoutine({ id: params.startRoutineId, name: params.startRoutineName, isTemplate: false });
-        } else {
-          setRoutines(await fetchRoutines(userId));
-        }
-      } catch (e: any) {
-        Alert.alert(t('oops'), e.message ?? t('wo_load_failed'));
-      } finally {
-        setLoadingStart(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  const [now, setNow] = useState(() => Date.now());
 
   // Klok voor de sessie-timer + rusttimer-countdown.
+  const hasSession = !!session;
   useEffect(() => {
-    if (!session) return;
+    if (!hasSession) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [!!session]);
+  }, [hasSession]);
 
   // Rusttimer die vanzelf afloopt.
   useEffect(() => {
     if (!session?.restTimer) return;
     const remaining = new Date(session.restTimer.endsAt).getTime() - now;
     if (remaining <= 0) clearRestTimer(session).then(setSession);
-  }, [now]);
+  }, [now, session]);
 
   const hydrateExerciseData = useCallback(async (sessionId: string, uid: string, exerciseIds: string[]) => {
     if (exerciseIds.length === 0) return;
@@ -200,6 +175,32 @@ export default function WorkoutSessionScreen() {
       setStarting(false);
     }
   };
+
+  // ── Laden: kijk of er een sessie te hervatten valt, anders toon routines ──
+  // Komt hier binnen vanaf de routines-lijst (A3) met startRoutineId/-Name?
+  // Dan die routine direct starten i.p.v. nogmaals de lijst te tonen.
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      setLoadingStart(true);
+      try {
+        const resumed = await resumeActiveSession(userId);
+        if (resumed) {
+          setPendingResume(resumed);
+        } else if (params.startRoutineId && params.startRoutineName) {
+          router.setParams({ startRoutineId: undefined, startRoutineName: undefined });
+          await handleStartFromRoutine({ id: params.startRoutineId, name: params.startRoutineName, isTemplate: false });
+        } else {
+          setRoutines(await fetchRoutines(userId));
+        }
+      } catch (e: any) {
+        Alert.alert(t('oops'), e.message ?? t('wo_load_failed'));
+      } finally {
+        setLoadingStart(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Tekst van de "rust voorbij"-notificatie, in de taal van de app.
   const restText = (exerciseName: string) => ({

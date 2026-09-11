@@ -75,7 +75,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   // ── LADEN: haal de opgeslagen doelen/metingen/AI-profiel op uit Supabase ──
   // Leest de 'profiles'-rij van deze gebruiker. Is een veld leeg, dan blijven de defaults staan.
-  async function loadFromSupabase(id: string) {
+  const loadFromSupabase = useCallback(async (id: string) => {
     const { data } = await supabase
       .from('profiles')
       .select('goals, measurements, profile_context, full_name')
@@ -85,7 +85,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (data?.measurements) setMeasurementsState({ ...DEFAULT_MEASUREMENTS, ...data.measurements });
     if (data?.profile_context) setProfileContextState(data.profile_context as AIProfile);
     setFullName(data?.full_name ?? null);
-  }
+  }, []);
 
   // Bij opstarten: kijk of er al iemand is ingelogd, en luister naar in-/uitloggen.
   useEffect(() => {
@@ -108,14 +108,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [loadFromSupabase]);
 
   // ── OPSLAAN: update lokaal én schrijf terug naar Supabase ──
   // De schermen (goals.tsx / measurements.tsx) roepen deze functies aan bij "Opslaan".
   // Lokaal meteen zichtbaar; mislukt de write (bv. geen internet), dan een melding en
   // terug naar wat er echt in Supabase staat — anders lijkt het opgeslagen terwijl
   // het na een herstart weg is.
-  const saveProfileField = async (patch: { goals: Goals } | { measurements: Measurements }) => {
+  const saveProfileField = useCallback(async (patch: { goals: Goals } | { measurements: Measurements }) => {
     if (!userId) return;
     const { error } = await supabase.from('profiles').upsert({ id: userId, ...patch, updated_at: new Date() });
     if (error) {
@@ -123,24 +123,27 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       Alert.alert(t('save_failed_title'), t('save_failed_msg'));
       loadFromSupabase(userId);
     }
-  };
-  const setGoals = (g: Goals) => {
+  }, [userId, t, loadFromSupabase]);
+  const setGoals = useCallback((g: Goals) => {
     setGoalsState(g);
     saveProfileField({ goals: g });
-  };
-  const setMeasurements = (m: Measurements) => {
+  }, [saveProfileField]);
+  const setMeasurements = useCallback((m: Measurements) => {
     setMeasurementsState(m);
     saveProfileField({ measurements: m });
-  };
+  }, [saveProfileField]);
   // Wordt na onboarding aangeroepen; de rij zelf is dan al opgeslagen door onboarding.tsx,
   // dit houdt alleen de lokale state (voor bv. de AI Coach-kaart) in sync.
-  const setProfileContext = (p: AIProfile) => setProfileContextState(p);
+  const setProfileContext = useCallback((p: AIProfile) => setProfileContextState(p), []);
 
-  const refreshSettings = () => {
+  const refreshSettings = useCallback(() => {
     if (userId) loadFromSupabase(userId);
-  };
+  }, [userId, loadFromSupabase]);
 
-  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, fullName, refreshSettings }), [goals, measurements, profileContext, fullName, userId, t]);
+  const value = useMemo(
+    () => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, fullName, refreshSettings }),
+    [goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, fullName, refreshSettings]
+  );
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
@@ -167,15 +170,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setLang = (l: Lang) => {
+  const setLang = useCallback((l: Lang) => {
     setLangState(l);
     AsyncStorage.setItem('lang', l); // onthouden voor de volgende keer
-  };
+  }, []);
 
   // De vertaalfunctie: zoekt de tekst op; valt terug op de sleutel als die ontbreekt.
-  const t = (k: TKey) => translations[lang][k] ?? k;
+  const t = useCallback((k: TKey) => translations[lang][k] ?? k, [lang]);
 
-  const value = useMemo<LangCtx>(() => ({ lang, setLang, t, locale: LOCALES[lang] }), [lang]);
+  const value = useMemo<LangCtx>(() => ({ lang, setLang, t, locale: LOCALES[lang] }), [lang, setLang, t]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
@@ -202,7 +205,11 @@ const AuthContext = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  // Onthoudt voor wélke gebruiker de check gold. Voor een andere (of geen) gebruiker is
+  // het antwoord nog onbekend (null), zonder dat een effect de state hoeft te resetten.
+  const [onboardedCheck, setOnboardedCheck] = useState<{ userId: string; value: boolean } | null>(null);
+  const currentUserId = session?.user.id ?? null;
+  const onboarded = currentUserId && onboardedCheck?.userId === currentUserId ? onboardedCheck.value : null;
 
   // Bestaande sessie ophalen + luisteren naar in-/uitloggen.
   useEffect(() => {
@@ -218,18 +225,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // niet genoeg: accounts van vóór Sprint 2 hebben wel een naam maar geen AI-profiel,
   // en dan zegt de coach "rond eerst de onboarding af" zonder dat je er ooit komt.
   useEffect(() => {
-    if (!session) { setOnboarded(null); return; }
+    if (!currentUserId) return;
     supabase
       .from('profiles')
       .select('full_name, profile_context')
-      .eq('id', session.user.id)
+      .eq('id', currentUserId)
       .maybeSingle()
-      .then(({ data }) => setOnboarded(!!data?.full_name && !!data?.profile_context));
-  }, [session]);
+      .then(({ data }) => setOnboardedCheck({ userId: currentUserId, value: !!data?.full_name && !!data?.profile_context }));
+  }, [currentUserId]);
 
-  const markOnboarded = () => setOnboarded(true);
+  const markOnboarded = useCallback(() => {
+    if (currentUserId) setOnboardedCheck({ userId: currentUserId, value: true });
+  }, [currentUserId]);
 
-  const value = useMemo<AuthCtx>(() => ({ session, onboarded, loading, markOnboarded }), [session, onboarded, loading]);
+  const value = useMemo<AuthCtx>(() => ({ session, onboarded, loading, markOnboarded }), [session, onboarded, loading, markOnboarded]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
@@ -283,42 +292,44 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   const [streakDays, setStreakDays] = useState(0);
   const [xpTotal, setXpTotal] = useState(0);
   const [lastActiveDate, setLastActiveDate] = useState<string | null>(null);
+  // Voor welke gebruiker + dag de state hierboven geladen is. Klopt dat niet (uitgelogd,
+  // andere gebruiker, nieuwe dag nog aan het laden), dan tonen we een lege dag.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const currentKey = userId ? `${userId}:${todayKey}` : null;
+  const ready = currentKey !== null && loadedKey === currentKey;
 
   // Laadt streak/XP en de voortgang van vandaag uit Supabase — de bron van waarheid,
-  // ook om lokale state te herstellen als een write mislukte.
-  const loadToday = useCallback(async () => {
+  // ook om lokale state te herstellen als een write mislukte. De state wordt pas in
+  // de .then gezet: nooit synchroon vanuit het effect dat dit aanroept.
+  const loadToday = useCallback(() => {
     if (!userId) return;
-    const [{ data: profileRow }, { data: dayRow }] = await Promise.all([
+    Promise.all([
       supabase.from('profiles').select('streak_days, xp_total, last_active_date').eq('id', userId).single(),
       supabase.from('daily_progress').select('*').eq('user_id', userId).eq('date', todayKey).maybeSingle(),
-    ]);
-    setStreakDays(profileRow?.streak_days ?? 0);
-    setXpTotal(profileRow?.xp_total ?? 0);
-    setLastActiveDate(profileRow?.last_active_date ?? null);
-    setProgress(dayRow ? {
-      date: dayRow.date,
-      workoutDone: dayRow.workout_done,
-      steps: dayRow.steps,
-      waterL: Number(dayRow.water_l),
-      xpAwarded: dayRow.xp_awarded ?? emptyDailyProgress(todayKey).xpAwarded,
-    } : emptyDailyProgress(todayKey));
+    ]).then(([{ data: profileRow }, { data: dayRow }]) => {
+      setStreakDays(profileRow?.streak_days ?? 0);
+      setXpTotal(profileRow?.xp_total ?? 0);
+      setLastActiveDate(profileRow?.last_active_date ?? null);
+      setProgress(dayRow ? {
+        date: dayRow.date,
+        workoutDone: dayRow.workout_done,
+        steps: dayRow.steps,
+        waterL: Number(dayRow.water_l),
+        xpAwarded: dayRow.xp_awarded ?? emptyDailyProgress(todayKey).xpAwarded,
+      } : emptyDailyProgress(todayKey));
+      setLoadedKey(`${userId}:${todayKey}`);
+    });
   }, [userId, todayKey]);
 
   useEffect(() => {
-    if (userId) {
-      loadToday();
-      return;
-    }
-    setProgress(emptyDailyProgress(todayKey));
-    setStreakDays(0);
-    setXpTotal(0);
-    setLastActiveDate(null);
-  }, [userId, todayKey, loadToday]);
+    if (userId) loadToday();
+  }, [userId, loadToday]);
 
   // Slaat de nieuwe dagvoortgang op (lokaal + Supabase). `newlyEarnedXp` > 0
   // betekent dat dit de eerste keer is dat een taak vandaag is voltooid —
   // dan telt ook de streak mee (max 1x per dag opgehoogd).
-  function commitProgress(next: DailyProgress, newlyEarnedXp: number) {
+  const commitProgress = useCallback((next: DailyProgress, newlyEarnedXp: number) => {
+    if (!userId || !ready) return; // nog niet geladen: niet op een lege dag verder bouwen
     const isFirstActionToday = newlyEarnedXp > 0 && !hasAnyActivity(progress);
     const nextStreakDays = isFirstActionToday ? computeNextStreak(lastActiveDate, streakDays, todayKey) : streakDays;
     const nextLastActive = isFirstActionToday ? todayKey : lastActiveDate;
@@ -331,7 +342,6 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
     }
     if (newlyEarnedXp > 0) setXpTotal(nextXpTotal);
 
-    if (!userId) return;
     const writes = [
       supabase.from('daily_progress').upsert({
         user_id: userId,
@@ -361,9 +371,9 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       Alert.alert(t('save_failed_title'), t('save_failed_msg'));
       loadToday();
     });
-  }
+  }, [userId, ready, progress, lastActiveDate, streakDays, xpTotal, todayKey, t, loadToday]);
 
-  const toggleWorkout = () => {
+  const toggleWorkout = useCallback(() => {
     const willBeDone = !progress.workoutDone;
     const justCompleted = willBeDone && !progress.xpAwarded.workout;
     commitProgress({
@@ -371,10 +381,10 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       workoutDone: willBeDone,
       xpAwarded: { ...progress.xpAwarded, workout: progress.xpAwarded.workout || willBeDone },
     }, justCompleted ? XP_REWARDS.workout : 0);
-  };
+  }, [progress, commitProgress]);
 
   const stepGoal = profileContext?.derived.stepGoal ?? goals.steps;
-  const addSteps = (n: number) => {
+  const addSteps = useCallback((n: number) => {
     const steps = Math.max(0, progress.steps + n);
     const reachedGoal = steps >= stepGoal;
     const justCompleted = reachedGoal && !progress.xpAwarded.steps;
@@ -383,9 +393,9 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       steps,
       xpAwarded: { ...progress.xpAwarded, steps: progress.xpAwarded.steps || reachedGoal },
     }, justCompleted ? XP_REWARDS.steps : 0);
-  };
+  }, [progress, stepGoal, commitProgress]);
 
-  const addWater = (litres: number) => {
+  const addWater = useCallback((litres: number) => {
     const waterL = Math.round(Math.max(0, progress.waterL + litres) * 100) / 100;
     const reachedGoal = waterL >= goals.water;
     const justCompleted = reachedGoal && !progress.xpAwarded.water;
@@ -394,36 +404,39 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       waterL,
       xpAwarded: { ...progress.xpAwarded, water: progress.xpAwarded.water || reachedGoal },
     }, justCompleted ? XP_REWARDS.water : 0);
-  };
+  }, [progress, goals.water, commitProgress]);
+
+  // Wat schermen te zien krijgen: de geladen dag, of een lege dag zolang die er niet is.
+  const shownProgress = useMemo(() => (ready ? progress : emptyDailyProgress(todayKey)), [ready, progress, todayKey]);
+  const shownStreak = ready ? streakDays : 0;
+  const shownXp = ready ? xpTotal : 0;
 
   const score = useMemo(() => calculateDailyScore({
-    workoutDone: progress.workoutDone,
-    steps: progress.steps,
+    workoutDone: shownProgress.workoutDone,
+    steps: shownProgress.steps,
     stepGoal,
-    waterL: progress.waterL,
+    waterL: shownProgress.waterL,
     waterGoalL: goals.water,
-    streakDays,
-  }), [progress, stepGoal, goals.water, streakDays]);
+    streakDays: shownStreak,
+  }), [shownProgress, stepGoal, goals.water, shownStreak]);
 
   const focusTasks = useMemo(
-    () => buildTodayFocus(profileContext, progress, { steps: stepGoal, water: goals.water }, lang),
-    [profileContext, progress, stepGoal, goals.water, lang]
+    () => buildTodayFocus(profileContext, shownProgress, { steps: stepGoal, water: goals.water }, lang),
+    [profileContext, shownProgress, stepGoal, goals.water, lang]
   );
 
   const value = useMemo<DailyCtx>(() => ({
-    progress,
-    streakDays,
-    xpTotal,
-    level: levelFromXp(xpTotal),
-    xpProgress: xpIntoLevel(xpTotal),
+    progress: shownProgress,
+    streakDays: shownStreak,
+    xpTotal: shownXp,
+    level: levelFromXp(shownXp),
+    xpProgress: xpIntoLevel(shownXp),
     score,
     focusTasks,
     toggleWorkout,
     addSteps,
     addWater,
-  // De acties sluiten over userId/todayKey/lastActiveDate/t heen; zonder die deps
-  // zou een scherm na bv. middernacht of een taalwissel een verouderde versie aanroepen.
-  }), [progress, streakDays, xpTotal, score, focusTasks, lastActiveDate, userId, todayKey, t, loadToday]);
+  }), [shownProgress, shownStreak, shownXp, score, focusTasks, toggleWorkout, addSteps, addWater]);
 
   return <DailyContext.Provider value={value}>{children}</DailyContext.Provider>;
 }

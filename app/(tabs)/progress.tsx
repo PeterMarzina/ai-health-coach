@@ -3,16 +3,15 @@
 // lijngrafiek (weight_logs), een slaap-lijngrafiek (daily_logs) en een
 // trainingsvolume-grafiek (workout_sets). Lichaamssamenstelling gebruikt de
 // laatst opgeslagen metingen (profiel), niet langer mock-data.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, TextInput, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Section, Chip, EmptyState } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { LineChart, Donut, Sparkline } from '@/components/charts';
 import { useTheme, useSettings, useAuth, useLang } from '@/components/store';
-import { todayKey, fetchWeightLogs, logWeight } from '@/src/services/trackingService';
-import { fetchRecentDailyLogs } from '@/src/services/trackingService';
+import { todayKey, fetchWeightLogs, logWeight, fetchRecentDailyLogs } from '@/src/services/trackingService';
 import { fetchWorkoutVolumeHistory } from '@/src/services/workouts';
 import type { WeightLog } from '@/src/types/tracking';
 import type { TKey } from '@/constants/i18n';
@@ -53,9 +52,10 @@ export default function Progress() {
   const [weightInput, setWeightInput] = useState('');
   const [logging, setLogging] = useState(false);
 
+  // De spinner gaat aan bij het wisselen van periode (zie de chips); herladen bij
+  // terugkomen op deze tab gebeurt stil, zodat de grafieken niet steeds knipperen.
   const load = useCallback(async () => {
     if (!userId) return;
-    setLoading(true);
     try {
       const days = RANGE_DAYS[range];
       const [w, sleep, vol] = await Promise.all([
@@ -73,7 +73,14 @@ export default function Progress() {
     }
   }, [userId, range, t]);
 
-  useEffect(() => { load(); }, [load]);
+  // Bij elke focus: gewicht, slaap en workouts worden op andere schermen gelogd.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const selectRange = (r: (typeof RANGES)[number]) => {
+    if (r === range) return;
+    setLoading(true);
+    setRange(r);
+  };
 
   const handleLogWeight = async () => {
     const kg = parseFloat(weightInput.replace(',', '.'));
@@ -111,7 +118,7 @@ export default function Progress() {
       {/* time chips */}
       <View style={{ flexDirection: 'row', gap: 7, marginBottom: 18 }}>
         {RANGES.map((r) => (
-          <Chip key={r} label={RANGE_LABEL[r] ? t(RANGE_LABEL[r]!) : r} active={range === r} onPress={() => setRange(r)} style={{ flex: 1 }} />
+          <Chip key={r} label={RANGE_LABEL[r] ? t(RANGE_LABEL[r]!) : r} active={range === r} onPress={() => selectRange(r)} style={{ flex: 1 }} />
         ))}
       </View>
 

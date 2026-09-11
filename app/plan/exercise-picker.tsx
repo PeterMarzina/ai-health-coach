@@ -28,6 +28,11 @@ const EQUIPMENT_LABEL: Record<Equipment, TKey> = {
 };
 const TYPE_LABEL: Record<ExerciseType, TKey> = { push: 'type_push', pull: 'type_pull', legs: 'type_legs', core: 'type_core' };
 
+// Uniek per keuze, zodat het sessie-scherm ook reageert als dezelfde oefening 2x gekozen wordt.
+function pickNonce(): string {
+  return String(Date.now());
+}
+
 export default function ExercisePicker() {
   const { c } = useTheme();
   const { t } = useLang();
@@ -73,7 +78,7 @@ export default function ExercisePicker() {
   useEffect(() => {
     const id = setTimeout(load, search ? 250 : 0); // lichte debounce op typen
     return () => clearTimeout(id);
-  }, [load]);
+  }, [load, search]);
 
   const sorted = useMemo(() => {
     const favSet = new Set(favorites);
@@ -96,7 +101,7 @@ export default function ExercisePicker() {
       // pop't terug naar die instantie i.p.v. een nieuwe te maken, zodat de
       // actieve sessie-state niet verloren gaat. `pickedAt` is een nonce zodat
       // hetzelfde effect ook afgaat als dezelfde oefening 2x gekozen wordt.
-      router.navigate({ pathname: '/plan/workout', params: { pickedExerciseId: exercise.id, pickedAt: String(Date.now()) } });
+      router.navigate({ pathname: '/plan/workout', params: { pickedExerciseId: exercise.id, pickedAt: pickNonce() } });
     } else {
       router.push({ pathname: '/plan/exercise-history', params: { exerciseId: exercise.id, exerciseName: exercise.name } });
     }

@@ -61,28 +61,30 @@ export default function Onboarding() {
   // ── Antwoorden ──
   // Gebruikersnaam is gekozen bij registreren (opgeslagen in de auth user metadata);
   // hier vooringevuld en aanpasbaar, en pas bij "Klaar!" definitief in `profiles` gezet.
-  const [username, setUsername] = useState('');
-  useEffect(() => {
-    const metaUsername = session?.user?.user_metadata?.username;
-    if (metaUsername && !username) setUsername(metaUsername);
-  }, [session]);
+  // De auth-poort stuurt pas hierheen als er een sessie is, dus die is er al bij de eerste render.
+  const [username, setUsername] = useState<string>(() => session?.user?.user_metadata?.username ?? '');
 
   // Real-time beschikbaarheid van de gebruikersnaam, gedebouncet zodat we niet
   // bij elke toetsaanslag een request sturen. De RPC is_username_available kent zowel
   // al-gecommitte usernames (profiles) als nog-niet-afgeronde signups (auth metadata),
   // telt je eigen naam als vrij, en geeft alleen true/false terug — geen e-mailadres.
-  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  // Het resultaat onthoudt voor wélke naam het geldt; zolang dat niet de huidige
+  // naam is, zijn we nog aan het checken. Zo hoeft het effect niets synchroon te resetten.
+  const [usernameCheck, setUsernameCheck] = useState<{ name: string; status: 'available' | 'taken' | 'error' } | null>(null);
+  const trimmedUsername = username.trim();
   useEffect(() => {
-    const trimmed = username.trim();
-    if (trimmed.length < 3) { setUsernameStatus('idle'); return; }
-    setUsernameStatus('checking');
+    if (trimmedUsername.length < 3) return;
     const handle = setTimeout(async () => {
-      const { data: available, error } = await supabase.rpc('is_username_available', { p_username: trimmed });
-      if (error) { setUsernameStatus('idle'); return; }
-      setUsernameStatus(available ? 'available' : 'taken');
+      const { data: available, error } = await supabase.rpc('is_username_available', { p_username: trimmedUsername });
+      setUsernameCheck({ name: trimmedUsername, status: error ? 'error' : available ? 'available' : 'taken' });
     }, 500);
     return () => clearTimeout(handle);
-  }, [username, session]);
+  }, [trimmedUsername]);
+  const usernameStatus: 'idle' | 'checking' | 'available' | 'taken' =
+    trimmedUsername.length < 3 ? 'idle'
+      : usernameCheck?.name !== trimmedUsername ? 'checking'
+        : usernameCheck.status === 'error' ? 'idle'
+          : usernameCheck.status;
 
   const [name, setName] = useState('');
   const [goal, setGoal] = useState<Goal | ''>('');
@@ -229,7 +231,9 @@ export default function Onboarding() {
     }
   };
 
-  const Header = () => (
+  // Kop en navigatie als JSX-waarden i.p.v. componenten binnen dit component: een
+  // component dat per render opnieuw wordt aangemaakt, verliest bij elke render zijn state.
+  const header = (
     <>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
         {(['nl', 'en'] as const).map((l) => (
@@ -257,7 +261,7 @@ export default function Onboarding() {
     </>
   );
 
-  const Nav = ({ finalLabel }: { finalLabel?: string }) => (
+  const renderNav = (finalLabel?: string) => (
     <View style={{ flexDirection: 'row', gap: 10, marginTop: 30 }}>
       {step > 0 ? (
         <TouchableOpacity activeOpacity={0.85} onPress={goBack}
@@ -284,7 +288,7 @@ export default function Onboarding() {
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: insets.bottom + 40 }}
       showsVerticalScrollIndicator={false}
     >
-      <Header />
+      {header}
 
       {step === 0 && (
         <>
@@ -527,7 +531,7 @@ export default function Onboarding() {
         </>
       )}
 
-      <Nav finalLabel={step === 7 ? t('ob_finish') : undefined} />
+      {renderNav(step === 7 ? t('ob_finish') : undefined)}
     </ScrollView>
   );
 }

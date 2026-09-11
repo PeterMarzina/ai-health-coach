@@ -1,15 +1,15 @@
 // components/TabBar.tsx — eigen tabbalk onderaan het scherm
 // Toont 4 tabs (Home, Plan, Progress, Profile) met in het midden een ronde "+"-knop.
-// Die "+"-knop opent een uitschuivend menu (AddSheet) met snelle acties.
+// Die "+"-knop opent een uitschuivend menu (QuickAddSheet) met snelle acties.
 // De actieve tab krijgt de accentkleur; de rest is gedimd.
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useRouter } from 'expo-router';
 import { useTheme, useLang } from './store';
 import { Icon, IconName } from './Icon';
-import { withAlpha } from '@/constants/theme';
+import { QuickAddSheet, QuickAddAction } from './QuickAddSheet';
 import type { TKey } from '@/constants/i18n';
 
 const ITEMS: { route: string; label: TKey; icon: IconName }[] = [
@@ -68,72 +68,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { c } = useTheme();
   const { t } = useLang();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [mounted, setMounted] = useState(open);
-  const y = useRef(new Animated.Value(1)).current; // 0 = shown, 1 = hidden
-  const fade = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(y, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }),
-      ]).start();
-    } else if (mounted) {
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(y, { toValue: 1, duration: 240, useNativeDriver: true }),
-      ]).start(({ finished }) => { if (finished) setMounted(false); });
-    }
-  }, [open]);
-
-  const go = (path: string) => { onClose(); setTimeout(() => router.push(path as any), 180); };
-
-  const items: { key: string; label: string; sub: string; icon: IconName; color: string; path: string }[] = [
-    { key: 'workout', label: t('qa_workout'), sub: t('qa_workout_sub'), icon: 'dumbbell', color: c.accent, path: '/plan/workout' },
-    { key: 'nutrition', label: t('qa_nutrition'), sub: t('qa_nutrition_sub'), icon: 'flame', color: c.calories, path: '/nutrition' },
+  const actions: QuickAddAction[] = [
+    { key: 'workout', label: t('qa_workout'), sub: t('qa_workout_sub'), icon: 'dumbbell', color: c.accent, onPress: () => router.push('/plan/workout') },
+    { key: 'nutrition', label: t('qa_nutrition'), sub: t('qa_nutrition_sub'), icon: 'flame', color: c.calories, fill: true, onPress: () => router.push('/nutrition') },
     // Gewicht loggen gebeurt op Progress (weight_logs); Measurements past alleen het profiel aan.
-    { key: 'weight', label: t('qa_weight'), sub: t('qa_weight_sub'), icon: 'chart', color: c.water, path: '/progress' },
-    { key: 'coach', label: t('qa_coach'), sub: t('qa_coach_sub'), icon: 'sparkle', color: c.protein, path: '/coach' },
+    { key: 'weight', label: t('qa_weight'), sub: t('qa_weight_sub'), icon: 'chart', color: c.water, onPress: () => router.push('/progress') },
+    { key: 'coach', label: t('qa_coach'), sub: t('qa_coach_sub'), icon: 'sparkle', color: c.protein, fill: true, onPress: () => router.push('/coach') },
   ];
 
-  if (!mounted) return null;
-  const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [0, 500] });
-
-  return (
-    <Modal transparent visible={mounted} animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', opacity: fade }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-      </Animated.View>
-      <Animated.View style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0,
-        transform: [{ translateY }],
-        backgroundColor: c.cardHi, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        borderTopWidth: 1, borderColor: c.lineHi,
-        paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 24,
-      }}>
-        <View style={{ width: 38, height: 4, borderRadius: 4, backgroundColor: c.faint, alignSelf: 'center', marginBottom: 16 }} />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginHorizontal: 4, marginBottom: 14 }}>{t('quick_add')}</Text>
-        <View style={{ gap: 9 }}>
-          {items.map((it) => (
-            <TouchableOpacity key={it.key} activeOpacity={0.75} onPress={() => go(it.path)} style={{
-              flexDirection: 'row', alignItems: 'center', gap: 14,
-              backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: 16, padding: 13,
-            }}>
-              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: withAlpha(it.color, 0.15), alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={it.icon} size={21} color={it.color} fill={it.icon === 'flame' || it.icon === 'sparkle' ? it.color : undefined} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{it.label}</Text>
-                <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 1 }}>{it.sub}</Text>
-              </View>
-              <Icon name="chevR" size={18} color={c.dim} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Animated.View>
-    </Modal>
-  );
+  return <QuickAddSheet open={open} onClose={onClose} title={t('quick_add')} actions={actions} />;
 }

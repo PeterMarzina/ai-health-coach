@@ -5,7 +5,7 @@
 // 'product-lookup' Edge Function. Gevonden → productdetail (portie + opslaan).
 // Niet gevonden → handmatige invoer met de barcode al ingevuld.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Animated, Easing, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Animated, Easing, Linking, useAnimatedValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -27,7 +27,7 @@ export default function ScanScreen() {
   const [explained, setExplained] = useState(false);
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
-  const scanLine = useRef(new Animated.Value(0)).current;
+  const scanLine = useAnimatedValue(0);
 
   useEffect(() => {
     const loop = Animated.loop(

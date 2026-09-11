@@ -6,13 +6,13 @@
 // Alles hier gebruikt uitsluitend bestaande theme-tokens (constants/theme.ts) —
 // geen hardcoded kleuren.
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Animated, Pressable } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Card, Bar } from '@/components/ui';
-import { Icon, IconName } from '@/components/Icon';
+import { Icon } from '@/components/Icon';
+import { QuickAddSheet, QuickAddAction } from '@/components/QuickAddSheet';
 import { useTheme, useSettings, useAuth, useDaily, useLang } from '@/components/store';
-import { withAlpha } from '@/constants/theme';
 import { fill, type TKey } from '@/constants/i18n';
 import { MEAL_TYPES, type MealEntry, type MealType, type DiaryDayStatus } from '@/src/types/tracking';
 import {
@@ -396,71 +396,12 @@ export default function NutritionScreen() {
 function AddSheet({
   open, onClose, onSearch, onRecent, onManual, onBarcode,
 }: { open: boolean; onClose: () => void; onSearch: () => void; onRecent: () => void; onManual: () => void; onBarcode: () => void }) {
-  const { c } = useTheme();
   const { t } = useLang();
-  const insets = useSafeAreaInsets();
-  const [mounted, setMounted] = React.useState(open);
-  const y = React.useRef(new Animated.Value(1)).current;
-  const fade = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    if (open) {
-      setMounted(true);
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(y, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }),
-      ]).start();
-    } else if (mounted) {
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(y, { toValue: 1, duration: 240, useNativeDriver: true }),
-      ]).start(({ finished }) => { if (finished) setMounted(false); });
-    }
-  }, [open]);
-
-  const go = (fn: () => void) => { onClose(); setTimeout(fn, 180); };
-
-  const items: { key: string; label: string; sub: string; icon: IconName; onPress: () => void }[] = [
+  const actions: QuickAddAction[] = [
     { key: 'barcode', label: t('scan_barcode'), sub: t('scan_barcode_sub'), icon: 'barcode', onPress: onBarcode },
     { key: 'search', label: t('search'), sub: t('search_sub'), icon: 'search', onPress: onSearch },
     { key: 'recent', label: t('recent'), sub: t('recent_sub'), icon: 'chart', onPress: onRecent },
     { key: 'manual', label: t('manual_entry'), sub: t('manual_entry_sub'), icon: 'pencil', onPress: onManual },
   ];
-
-  if (!mounted) return null;
-  const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [0, 500] });
-
-  return (
-    <Modal transparent visible={mounted} animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={{ flex: 1, backgroundColor: c.overlay, opacity: fade }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-      </Animated.View>
-      <Animated.View style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, transform: [{ translateY }],
-        backgroundColor: c.cardHi, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        borderTopWidth: 1, borderColor: c.lineHi,
-        paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 24,
-      }}>
-        <View style={{ width: 38, height: 4, borderRadius: 4, backgroundColor: c.faint, alignSelf: 'center', marginBottom: 16 }} />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginHorizontal: 4, marginBottom: 14 }}>{t('quick_add')}</Text>
-        <View style={{ gap: 9 }}>
-          {items.map((it) => (
-            <TouchableOpacity key={it.key} activeOpacity={0.75} onPress={() => go(it.onPress)} style={{
-              flexDirection: 'row', alignItems: 'center', gap: 14,
-              backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: 16, padding: 13,
-            }}>
-              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: withAlpha(c.accent, 0.15), alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={it.icon} size={20} color={c.accentText} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{it.label}</Text>
-                <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 1 }}>{it.sub}</Text>
-              </View>
-              <Icon name="chevR" size={18} color={c.dim} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Animated.View>
-    </Modal>
-  );
+  return <QuickAddSheet open={open} onClose={onClose} title={t('quick_add')} actions={actions} />;
 }
