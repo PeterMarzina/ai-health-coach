@@ -2,7 +2,7 @@
 -- `profiles.measurements` bewaart alleen het huidige gewicht (snapshot), geen
 -- geschiedenis. Deze tabel logt gewicht per dag zodat de Progress-grafiek een
 -- echte trend kan tonen i.p.v. mock-data. Zelfde patroon als daily_logs
--- (005_nutrition_recovery.sql): composite PK (user_id, date), dus bij een
+-- (20260703084200_nutrition_recovery.sql): composite PK (user_id, date), dus bij een
 -- 2e meting op dezelfde dag overschrijf je die dag (upsert), geen dubbele rijen.
 
 create table if not exists public.weight_logs (
@@ -22,6 +22,6 @@ create policy "weight_logs_insert_own" on public.weight_logs
 create policy "weight_logs_update_own" on public.weight_logs
   for update using (auth.uid() = user_id);
 
--- Zelfde reden als in 005_nutrition_recovery.sql: tabellen aangemaakt via een
+-- Zelfde reden als in 20260703084200_nutrition_recovery.sql: tabellen aangemaakt via een
 -- migratie krijgen geen automatische GRANT voor anon/authenticated.
 grant select, insert, update on public.weight_logs to authenticated;

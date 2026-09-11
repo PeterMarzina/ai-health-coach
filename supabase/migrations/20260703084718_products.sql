@@ -22,7 +22,7 @@ create policy "products_select_authenticated" on public.products
   to authenticated
   using (true);
 
--- LET OP (zie 005_nutrition_recovery.sql / 004_daily_progress.sql voor de volledige
+-- LET OP (zie 20260703084200_nutrition_recovery.sql / 20260703084100_daily_progress.sql voor de volledige
 -- toelichting): tabellen aangemaakt door de `postgres`-rol krijgen geen automatische
 -- select-rechten voor `authenticated` — zonder deze GRANT krijgt elke request een 403.
 grant select on public.products to authenticated;

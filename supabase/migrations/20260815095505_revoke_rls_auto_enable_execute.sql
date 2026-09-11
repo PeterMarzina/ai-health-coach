@@ -1,4 +1,4 @@
--- 016_revoke_rls_auto_enable_execute.sql — security-advisor melding wegnemen.
+-- 20260815095505_revoke_rls_auto_enable_execute.sql — security-advisor melding wegnemen.
 --
 -- `public.rls_auto_enable()` is een event-trigger-functie (zet automatisch RLS aan
 -- op nieuwe tabellen in public). Hij stond met `execute` open voor anon en

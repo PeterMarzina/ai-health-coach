@@ -1,5 +1,5 @@
 -- Habit tracker (Deel B1/B5): habits + habit_entries
--- Zelfde RLS-patroon als workout_sessions/workout_sets (004_workout_system.sql):
+-- Zelfde RLS-patroon als workout_sessions/workout_sets (20260703081914_workout_system.sql):
 -- `habits` heeft een eigen user_id (auth.uid() = user_id), `habit_entries`
 -- heeft dat niet en wordt gescoped via een exists-join op de parent-habit.
 

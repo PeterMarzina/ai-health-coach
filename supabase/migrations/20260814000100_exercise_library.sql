@@ -1,5 +1,5 @@
 -- Gym tracker upgrade (Deel A2): oefeningenbibliotheek
--- Breidt de bestaande `exercises`-tabel (004_workout_system.sql) uit met
+-- Breidt de bestaande `exercises`-tabel (20260703081914_workout_system.sql) uit met
 -- equipment + eigen oefeningen i.p.v. 'm te vervangen — workoutPlanGenerator.ts
 -- en de bestaande workout-schermen blijven zo werken op `muscle_group`/`type`.
 
@@ -39,7 +39,7 @@ create policy "exercises_delete_own_custom"
   to authenticated
   using (is_custom = true and user_id = auth.uid());
 
--- 006_workout_grants.sql gaf alleen select; nu ook insert/update/delete nodig
+-- 20260703084013_workout_grants.sql gaf alleen select; nu ook insert/update/delete nodig
 -- voor eigen oefeningen (zie toelichting in die migratie over ontbrekende
 -- default-grants op tabellen aangemaakt via SQL-migraties).
 grant insert, update, delete on public.exercises to authenticated;
@@ -47,7 +47,7 @@ grant insert, update, delete on public.exercises to authenticated;
 create index if not exists exercises_user_id_idx on public.exercises(user_id) where user_id is not null;
 create index if not exists exercises_muscle_group_idx on public.exercises(muscle_group);
 
--- Equipment backfillen voor de 19 bestaande seed-oefeningen (004_workout_system.sql).
+-- Equipment backfillen voor de 19 bestaande seed-oefeningen (20260703081914_workout_system.sql).
 update public.exercises set equipment = 'barbell' where name in
   ('Bench Press', 'Overhead Press', 'Deadlift', 'Barbell Row', 'Barbell Curl', 'Back Squat', 'Romanian Deadlift');
 update public.exercises set equipment = 'dumbbell' where name in

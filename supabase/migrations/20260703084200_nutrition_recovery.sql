@@ -1,6 +1,6 @@
 -- Sprint 5: nutrition (meal logging) + recovery (sleep/training load) tracking
 -- Twee nieuwe tabellen, elk met RLS zodat gebruikers alleen hun eigen rijen zien/wijzigen.
--- Water tellen gebeurt al in `daily_progress` (Sprint 3, zie 004_daily_progress.sql) —
+-- Water tellen gebeurt al in `daily_progress` (Sprint 3, zie 20260703084100_daily_progress.sql) —
 -- bewust niet opnieuw hier, om geen twee bronnen van waarheid voor water te krijgen.
 
 -- meal_logs: één rij per handmatig gelogde maaltijd.

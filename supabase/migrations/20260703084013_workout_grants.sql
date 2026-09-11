@@ -5,7 +5,7 @@
 -- via de dashboard Table Editor aangemaakt). RLS-policies bepalen alleen wélke
 -- rijen zichtbaar zijn — zonder GRANT wordt de query al daarvóór geweigerd met
 -- "permission denied for table ...", nog vóór RLS wordt geëvalueerd.
--- (De RLS-policies uit 004_workout_system.sql waren dus al correct.)
+-- (De RLS-policies uit 20260703081914_workout_system.sql waren dus al correct.)
 
 grant select on public.exercises to authenticated;
 

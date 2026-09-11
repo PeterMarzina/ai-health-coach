@@ -1,6 +1,7 @@
 // src/services/trackingService.ts — dagelijkse tracking (maaltijden, slaap, herstel)
 // Dunne laag rond Supabase voor de tabellen `meal_logs`, `daily_logs` en `products`
-// (zie supabase/migrations/005_nutrition_recovery.sql, 006_products.sql, 009/010 voor
+// (zie supabase/migrations/20260703084200_nutrition_recovery.sql, 20260703084718_products.sql,
+// 20260804073224_nutrition_redesign_barcode_meal_type.sql en 20260804140111_product_favorites.sql voor
 // de nutrition-redesign: meal_type, barcode/OFF-producten, favorieten, dagboek-afronding).
 // Elke functie werkt op één gebruiker (user_id) + dag (date, YYYY-MM-DD). Water zelf
 // loopt via useDaily()/`daily_progress` (Sprint 3) — niet via deze service.

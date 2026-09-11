@@ -1,5 +1,5 @@
 -- Gym tracker upgrade (Deel A1/A3/A4): actieve sessie, rusttimer, set-types
--- Breidt de bestaande workout-tabellen (004_workout_system.sql) uit i.p.v. de
+-- Breidt de bestaande workout-tabellen (20260703081914_workout_system.sql) uit i.p.v. de
 -- richtlijn-namen `session_exercises`/`sets` uit AGENTS.md te gebruiken — zie
 -- DECISIONS.md ("bestaande workout-tabellen uitgebreid, niet vervangen").
 

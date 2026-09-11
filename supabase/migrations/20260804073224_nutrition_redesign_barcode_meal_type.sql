@@ -9,7 +9,7 @@
 --
 -- Toegepast op productie via de Supabase MCP (apply_migration) op 2026-08-04 —
 -- dit bestand is de repo-kopie zodat migratiehistorie en live schema niet uit elkaar
--- lopen (zie Fase 0-rapport: 007_weight_logs.sql stond wél lokaal maar was nooit
+-- lopen (zie Fase 0-rapport: 20260907120628_weight_logs.sql stond wél lokaal maar was nooit
 -- live toegepast, met een kapotte /weight_logs 404 in de app tot gevolg).
 
 alter table public.meal_logs

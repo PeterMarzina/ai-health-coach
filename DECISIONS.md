@@ -20,7 +20,7 @@ een auth-poort (`useAuth()` → login/onboarding/tabs). Tabs in
 (bv. `app/plan/_layout.tsx`) zonder header, met `animation: 'slide_from_right'`.
 
 **Bestaande workout-code**: `exercises` / `workout_sessions` /
-`workout_session_exercises` / `workout_sets` (migratie `004_workout_system.sql`),
+`workout_session_exercises` / `workout_sets` (migratie `20260703081914_workout_system.sql`),
 services in `src/services/workouts.ts` + `workoutPlanGenerator.ts`, schermen
 `app/plan/workout.tsx` (start/actieve sessie, template-keuze), `workout-log.tsx`
 (reps/gewicht loggen per oefening) en `exercise-history.tsx` (top-set-grafiek).
@@ -37,7 +37,7 @@ wanneer de tabel geen eigen `user_id` heeft (bv. `workout_sets` → via
 `workout_sessions`). Elke migratie eindigt met een expliciete
 `grant select, insert, update on public.<tabel> to authenticated;` — zonder die
 grant krijgt elke request een 403 vóór RLS wordt geëvalueerd (zie toelichting in
-`005_nutrition_recovery.sql`). Composite PK `(user_id, date)` voor "1 rij per
+`20260703084200_nutrition_recovery.sql`). Composite PK `(user_id, date)` voor "1 rij per
 dag"-tabellen (`daily_progress`, `weight_logs`).
 
 **Data-fetching conventie**: geen React Query/SWR — plain `async/await` +

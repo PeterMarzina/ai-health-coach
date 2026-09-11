@@ -76,7 +76,7 @@ export const EMPTY_DAILY_LOG = (date: string): DailyLog => ({
 });
 
 // WeightLog — één gewichtsmeting per gebruiker per dag, in `weight_logs`
-// (zie supabase/migrations/007_weight_logs.sql). Voedt de gewicht-grafiek
+// (zie supabase/migrations/20260907120628_weight_logs.sql). Voedt de gewicht-grafiek
 // op het Progress-scherm.
 export interface WeightLog {
   date: string;      // YYYY-MM-DD

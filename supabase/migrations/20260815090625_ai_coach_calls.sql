@@ -1,4 +1,4 @@
--- 015_ai_coach_calls.sql — per-user rate limit voor de ai-coach Edge Function.
+-- 20260815090625_ai_coach_calls.sql — per-user rate limit voor de ai-coach Edge Function.
 --
 -- Waarom: de NVIDIA-key is één gedeelde sleutel (Supabase secret), niet één per
 -- persoon. Zonder teller kan één account het quotum van het hele team opmaken.
@@ -29,7 +29,7 @@ create policy "ai_coach_calls_select_own" on public.ai_coach_calls
   for select using (auth.uid() = user_id);
 
 -- Zonder expliciete grant volgt een 403 vóórdat RLS überhaupt wordt geëvalueerd
--- (zie toelichting in 005_nutrition_recovery.sql).
+-- (zie toelichting in 20260703084200_nutrition_recovery.sql).
 grant select on public.ai_coach_calls to authenticated;
 
 -- Dekt beide count-queries van de functie (per gebruiker, gefilterd op tijd).

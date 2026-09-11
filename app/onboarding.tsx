@@ -74,7 +74,7 @@ export default function Onboarding() {
 
   // Real-time beschikbaarheid van de gebruikersnaam, gedebouncet zodat we niet
   // bij elke toetsaanslag een request sturen. Gebruikt dezelfde RPC als login
-  // (get_email_by_username, zie 003_username.sql) — die kent zowel al-gecommitte
+  // (get_email_by_username, zie 20260703075504_username.sql) — die kent zowel al-gecommitte
   // usernames (profiles) als nog-niet-afgeronde signups (auth metadata).
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   useEffect(() => {

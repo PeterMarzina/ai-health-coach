@@ -39,5 +39,5 @@ create policy "Users can update their own daily progress"
 -- geen automatische select/insert/update-rechten voor anon/authenticated (zie
 -- pg_default_acl) — alleen delete/truncate/references/trigger. Zonder deze GRANT
 -- krijgt elke request een 403 nog vóór RLS wordt geëvalueerd (ontdekt tijdens het
--- debuggen van Sprint 5, zie 005_nutrition_recovery.sql voor dezelfde toelichting).
+-- debuggen van Sprint 5, zie 20260703084200_nutrition_recovery.sql voor dezelfde toelichting).
 grant select, insert, update on public.daily_progress to authenticated;
