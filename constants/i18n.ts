@@ -96,10 +96,6 @@ export const translations = {
 
     // Onboarding via chat (intake-gesprek)
     ob_chat_button: 'Liever een gesprek? Doe de intake via de chat',
-    intake_title: 'Intake met je coach',
-    intake_saving: 'Profiel opslaan...',
-    intake_done: 'Je profiel en eerste plan staan klaar. Veel succes!',
-    intake_error: 'Kon je profiel niet opslaan. Probeer het opnieuw.',
 
     // Home / dashboard
     greet_morning: 'Goedemorgen',
@@ -204,10 +200,6 @@ export const translations = {
 
     // Onboarding via chat (intake conversation)
     ob_chat_button: 'Prefer a conversation? Do the intake via chat',
-    intake_title: 'Intake with your coach',
-    intake_saving: 'Saving your profile...',
-    intake_done: 'Your profile and first plan are ready. Good luck!',
-    intake_error: 'Could not save your profile. Please try again.',
 
     // Home / dashboard
     greet_morning: 'Good morning',

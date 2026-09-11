@@ -2,13 +2,18 @@
 // Bevat: Ring (ronde voortgangscirkel), Sparkline (mini-lijngrafiekje),
 // LineChart (grote grafiek met assen) en Donut (ringdiagram met segmenten).
 // Alle grafieken animeren zachtjes bij het laden.
-import React, { useEffect, useRef, useMemo } from 'react';
-import { View, Animated } from 'react-native';
+import React, { useEffect, useId } from 'react';
+import { View, Animated, useAnimatedValue } from 'react-native';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop, G, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from './store';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+// Uniek id voor een SVG-gradient. useId() geeft tekens als « » of : terug, die in
+// een url(#...)-verwijzing niet werken — daarom alleen letters/cijfers overhouden.
+function useSvgId(prefix: string): string {
+  return prefix + useId().replace(/[^a-zA-Z0-9]/g, '');
+}
 
 // ── Circular progress ring ───────────────────────────────────
 export function Ring({
@@ -23,11 +28,14 @@ export function Ring({
   const r = (size - stroke) / 2;
   const C = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, value)) / 100;
-  const anim = useRef(new Animated.Value(0)).current;
+  // De animatie houdt de gevulde fractie (0–1) zelf bij en loopt van de huidige naar de
+  // nieuwe waarde. Zo schuift de ring mee bij elke update (bv. +1000 stappen), in plaats
+  // van alleen bij de eerste render te animeren.
+  const progress = useAnimatedValue(0);
   useEffect(() => {
-    Animated.timing(anim, { toValue: 1, duration: dur, useNativeDriver: false }).start();
-  }, [pct]);
-  const dashoffset = anim.interpolate({ inputRange: [0, 1], outputRange: [C, C * (1 - pct)] });
+    Animated.timing(progress, { toValue: pct, duration: dur, useNativeDriver: false }).start();
+  }, [progress, pct, dur]);
+  const dashoffset = progress.interpolate({ inputRange: [0, 1], outputRange: [C, 0] });
   const cx = size / 2;
   return (
     <View style={{ width: size, height: size }}>
@@ -62,17 +70,25 @@ function buildPath(vals: number[], w: number, h: number, pad = 2) {
   }).join(' ');
 }
 
+// Fade-in bij het laden, gedeeld door Sparkline en LineChart.
+function useFadeIn(duration: number, delay: number) {
+  const opacity = useAnimatedValue(0);
+  useEffect(() => {
+    Animated.timing(opacity, { toValue: 1, duration, delay, useNativeDriver: true }).start();
+  }, [opacity, duration, delay]);
+  return opacity;
+}
+
 // ── Sparkline ────────────────────────────────────────────────
 export function Sparkline({
   data, color, w = 100, h = 30, fill = true, sw = 1.8,
 }: { data: number[]; color?: string; w?: number; h?: number; fill?: boolean; sw?: number }) {
   const { c } = useTheme();
   const col = color || c.accent;
-  const uid = useMemo(() => 'sp' + Math.random().toString(36).slice(2, 7), []);
+  const uid = useSvgId('sp');
   // Hooks vóór de early return: anders crasht React ("Rendered more hooks") zodra
   // `data` van < 2 naar ≥ 2 punten gaat, bv. wanneer Home zijn data binnenkrijgt.
-  const op = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(op, { toValue: 1, duration: 600, delay: 250, useNativeDriver: true }).start(); }, []);
+  const op = useFadeIn(600, 250);
   // Met minder dan 2 punten is er geen lijn te tekenen (buildPath zou delen door 0);
   // hou de ruimte leeg zodat de kaart-layout niet verspringt.
   if (!data || data.length < 2) return <View style={{ width: w, height: h }} />;
@@ -100,7 +116,10 @@ export function LineChart({
 }: { data: number[]; labels?: string[]; color?: string; w?: number; h?: number; yTicks?: number[]; last?: boolean }) {
   const { c } = useTheme();
   const col = color || c.accent;
-  const uid = useMemo(() => 'lc' + Math.random().toString(36).slice(2, 7), []);
+  const uid = useSvgId('lc');
+  const op = useFadeIn(700, 200);
+  // Zelfde reden als bij Sparkline: met 0 of 1 punt deelt `step` door 0 (NaN in het pad).
+  if (!data || data.length < 2) return <View style={{ width: w, height: h }} />;
   const padL = 26, padB = 22, padT = 8, padR = 6;
   const min = Math.min(...data), max = Math.max(...data);
   const rng = max - min || 1;
@@ -110,8 +129,6 @@ export function LineChart({
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
   const area = `${d} L${pts[pts.length - 1][0]} ${padT + ih} L${padL} ${padT + ih} Z`;
   const ticks = yTicks || [max, (max + min) / 2, min];
-  const op = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(op, { toValue: 1, duration: 700, delay: 200, useNativeDriver: true }).start(); }, []);
   return (
     <Animated.View style={{ opacity: op }}>
       <Svg width={w} height={h}>
@@ -133,7 +150,7 @@ export function LineChart({
         <Path d={area} fill={`url(#${uid})`} />
         <Path d={d} stroke={col} strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         {last ? <Circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={4} fill={col} /> : null}
-        {labels ? labels.map((l, i) => (
+        {labels && labels.length > 1 ? labels.map((l, i) => (
           <SvgText key={i} x={padL + (iw / (labels.length - 1)) * i} y={h - 6} fontSize={9.5} fill={c.dim}
             textAnchor={i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}>{l}</SvgText>
         )) : null}
@@ -149,23 +166,24 @@ export function Donut({
   const { c } = useTheme();
   const r = (size - stroke) / 2;
   const C = 2 * Math.PI * r;
-  const total = segments.reduce((s, x) => s + x.value, 0);
+  const total = segments.reduce((s, x) => s + Math.max(0, x.value), 0);
   const cx = size / 2;
-  let acc = 0;
+  // Fracties vooraf uitrekenen (i.p.v. een teller die tijdens het renderen oploopt).
+  // Bij een totaal van 0 (nog niets gelogd) alleen de lege ring: anders delen door 0.
+  const arcs = total > 0
+    ? segments.reduce<{ color: string; frac: number; start: number }[]>((out, seg) => {
+        const start = out.length ? out[out.length - 1].start + out[out.length - 1].frac : 0;
+        return [...out, { color: seg.color, frac: Math.max(0, seg.value) / total, start }];
+      }, [])
+    : [];
   return (
     <Svg width={size} height={size}>
       <G rotation={-90} origin={`${cx}, ${cx}`}>
         <Circle cx={cx} cy={cx} r={r} stroke={c.track} strokeWidth={stroke} fill="none" />
-        {segments.map((seg, i) => {
-          const frac = seg.value / total;
-          const dash = Math.max(0, C * frac - gap);
-          const el = (
-            <Circle key={i} cx={cx} cy={cx} r={r} stroke={seg.color} strokeWidth={stroke} fill="none"
-              strokeDasharray={`${dash} ${C}`} strokeDashoffset={-C * acc} strokeLinecap="butt" />
-          );
-          acc += frac;
-          return el;
-        })}
+        {arcs.map((arc, i) => (
+          <Circle key={i} cx={cx} cy={cx} r={r} stroke={arc.color} strokeWidth={stroke} fill="none"
+            strokeDasharray={`${Math.max(0, C * arc.frac - gap)} ${C}`} strokeDashoffset={-C * arc.start} strokeLinecap="butt" />
+        ))}
       </G>
     </Svg>
   );
