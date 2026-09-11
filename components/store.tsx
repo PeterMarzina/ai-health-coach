@@ -3,8 +3,8 @@
 //   en een toggle() om te wisselen. Gebruik in een scherm: const { c } = useTheme();
 // SettingsProvider + useSettings(): bewaart je doelen (goals) en metingen (measurements)
 //   zodat alle schermen ze kunnen lezen én aanpassen.
-import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
+import { useColorScheme, Alert, AppState } from 'react-native';
 import { DARK, LIGHT, Palette } from '@/constants/theme';
 import { DEFAULT_GOALS, DEFAULT_MEASUREMENTS } from '@/constants/data';
 import { supabase } from '../src/lib/supabase'; // verbinding met de backend (Supabase)
@@ -18,6 +18,7 @@ import { calculateDailyScore, DailyScoreResult } from '@/src/services/dailyScore
 import { nextStreak as computeNextStreak, toDateKey } from '@/src/services/streak';
 import { XP_REWARDS, levelFromXp, xpIntoLevel } from '@/src/services/xp';
 import { buildTodayFocus, FocusTask } from '@/src/services/todayFocus';
+import { msUntilNextLocalMidnight } from '@/src/lib/dateKey';
 
 type Mode = 'light' | 'dark';
 
@@ -63,6 +64,7 @@ type SettingsCtx = {
 const SettingsContext = createContext<SettingsCtx | null>(null);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useLang();
   // Lokale kopie van de gegevens (start met de standaardwaarden).
   const [goals, setGoalsState] = useState<Goals>(DEFAULT_GOALS);
   const [measurements, setMeasurementsState] = useState<Measurements>(DEFAULT_MEASUREMENTS);
@@ -110,17 +112,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   // ── OPSLAAN: update lokaal én schrijf terug naar Supabase ──
   // De schermen (goals.tsx / measurements.tsx) roepen deze functies aan bij "Opslaan".
-  const setGoals = (g: Goals) => {
-    setGoalsState(g);                                     // direct zichtbaar in de app
-    if (userId) {
-      supabase.from('profiles').upsert({ id: userId, goals: g, updated_at: new Date() });
+  // Lokaal meteen zichtbaar; mislukt de write (bv. geen internet), dan een melding en
+  // terug naar wat er echt in Supabase staat — anders lijkt het opgeslagen terwijl
+  // het na een herstart weg is.
+  const saveProfileField = async (patch: { goals: Goals } | { measurements: Measurements }) => {
+    if (!userId) return;
+    const { error } = await supabase.from('profiles').upsert({ id: userId, ...patch, updated_at: new Date() });
+    if (error) {
+      console.warn('Profiel opslaan mislukt', error);
+      Alert.alert(t('save_failed_title'), t('save_failed_msg'));
+      loadFromSupabase(userId);
     }
+  };
+  const setGoals = (g: Goals) => {
+    setGoalsState(g);
+    saveProfileField({ goals: g });
   };
   const setMeasurements = (m: Measurements) => {
     setMeasurementsState(m);
-    if (userId) {
-      supabase.from('profiles').upsert({ id: userId, measurements: m, updated_at: new Date() });
-    }
+    saveProfileField({ measurements: m });
   };
   // Wordt na onboarding aangeroepen; de rij zelf is dan al opgeslagen door onboarding.tsx,
   // dit houdt alleen de lokale state (voor bv. de AI Coach-kaart) in sync.
@@ -130,7 +140,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (userId) loadFromSupabase(userId);
   };
 
-  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, fullName, refreshSettings }), [goals, measurements, profileContext, fullName, userId]);
+  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, fullName, refreshSettings }), [goals, measurements, profileContext, fullName, userId, t]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
@@ -250,50 +260,59 @@ const DailyContext = createContext<DailyCtx | null>(null);
 export function DailyProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const { goals, profileContext } = useSettings();
+  const { t } = useLang();
   const userId = session?.user?.id ?? null;
-  // Simpel gehouden voor v1: één keer bepaald bij het opstarten van deze provider.
-  // Blijft de app open over middernacht heen, dan telt "vandaag" pas na herstart.
-  const [todayKey] = useState(() => toDateKey(new Date()));
+
+  // "Vandaag" schuift mee: een timer op de volgende middernacht, plus een check
+  // zodra de app terug op de voorgrond komt (timers lopen niet door in de achtergrond).
+  const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
+  useEffect(() => {
+    const syncToday = () => setTodayKey(toDateKey(new Date()));
+    const timer = setTimeout(syncToday, msUntilNextLocalMidnight());
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncToday();
+    });
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [todayKey]);
 
   const [progress, setProgress] = useState<DailyProgress>(() => emptyDailyProgress(todayKey));
   const [streakDays, setStreakDays] = useState(0);
   const [xpTotal, setXpTotal] = useState(0);
   const [lastActiveDate, setLastActiveDate] = useState<string | null>(null);
 
+  // Laadt streak/XP en de voortgang van vandaag uit Supabase — de bron van waarheid,
+  // ook om lokale state te herstellen als een write mislukte.
+  const loadToday = useCallback(async () => {
+    if (!userId) return;
+    const [{ data: profileRow }, { data: dayRow }] = await Promise.all([
+      supabase.from('profiles').select('streak_days, xp_total, last_active_date').eq('id', userId).single(),
+      supabase.from('daily_progress').select('*').eq('user_id', userId).eq('date', todayKey).maybeSingle(),
+    ]);
+    setStreakDays(profileRow?.streak_days ?? 0);
+    setXpTotal(profileRow?.xp_total ?? 0);
+    setLastActiveDate(profileRow?.last_active_date ?? null);
+    setProgress(dayRow ? {
+      date: dayRow.date,
+      workoutDone: dayRow.workout_done,
+      steps: dayRow.steps,
+      waterL: Number(dayRow.water_l),
+      xpAwarded: dayRow.xp_awarded ?? emptyDailyProgress(todayKey).xpAwarded,
+    } : emptyDailyProgress(todayKey));
+  }, [userId, todayKey]);
+
   useEffect(() => {
-    if (!userId) {
-      setProgress(emptyDailyProgress(todayKey));
-      setStreakDays(0);
-      setXpTotal(0);
-      setLastActiveDate(null);
+    if (userId) {
+      loadToday();
       return;
     }
-
-    (async () => {
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('streak_days, xp_total, last_active_date')
-        .eq('id', userId)
-        .single();
-      setStreakDays(profileRow?.streak_days ?? 0);
-      setXpTotal(profileRow?.xp_total ?? 0);
-      setLastActiveDate(profileRow?.last_active_date ?? null);
-
-      const { data: dayRow } = await supabase
-        .from('daily_progress')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', todayKey)
-        .maybeSingle();
-      setProgress(dayRow ? {
-        date: dayRow.date,
-        workoutDone: dayRow.workout_done,
-        steps: dayRow.steps,
-        waterL: Number(dayRow.water_l),
-        xpAwarded: dayRow.xp_awarded ?? emptyDailyProgress(todayKey).xpAwarded,
-      } : emptyDailyProgress(todayKey));
-    })();
-  }, [userId, todayKey]);
+    setProgress(emptyDailyProgress(todayKey));
+    setStreakDays(0);
+    setXpTotal(0);
+    setLastActiveDate(null);
+  }, [userId, todayKey, loadToday]);
 
   // Slaat de nieuwe dagvoortgang op (lokaal + Supabase). `newlyEarnedXp` > 0
   // betekent dat dit de eerste keer is dat een taak vandaag is voltooid —
@@ -312,24 +331,35 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
     if (newlyEarnedXp > 0) setXpTotal(nextXpTotal);
 
     if (!userId) return;
-    supabase.from('daily_progress').upsert({
-      user_id: userId,
-      date: next.date,
-      workout_done: next.workoutDone,
-      steps: next.steps,
-      water_l: next.waterL,
-      xp_awarded: next.xpAwarded,
-      updated_at: new Date(),
-    });
+    const writes = [
+      supabase.from('daily_progress').upsert({
+        user_id: userId,
+        date: next.date,
+        workout_done: next.workoutDone,
+        steps: next.steps,
+        water_l: next.waterL,
+        xp_awarded: next.xpAwarded,
+        updated_at: new Date(),
+      }),
+    ];
     if (newlyEarnedXp > 0) {
-      supabase.from('profiles').upsert({
+      writes.push(supabase.from('profiles').upsert({
         id: userId,
         xp_total: nextXpTotal,
         streak_days: nextStreakDays,
         last_active_date: nextLastActive,
         updated_at: new Date(),
-      });
+      }));
     }
+    // Mislukt een write, dan melden en terug naar de stand in Supabase — anders telt
+    // de app stappen/XP die na een herstart verdwenen blijken.
+    Promise.all(writes).then((results) => {
+      const failed = results.find((r) => r.error);
+      if (!failed) return;
+      console.warn('Dagvoortgang opslaan mislukt', failed.error);
+      Alert.alert(t('save_failed_title'), t('save_failed_msg'));
+      loadToday();
+    });
   }
 
   const toggleWorkout = () => {
@@ -390,7 +420,9 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
     toggleWorkout,
     addSteps,
     addWater,
-  }), [progress, streakDays, xpTotal, score, focusTasks]);
+  // De acties sluiten over userId/todayKey/lastActiveDate/t heen; zonder die deps
+  // zou een scherm na bv. middernacht of een taalwissel een verouderde versie aanroepen.
+  }), [progress, streakDays, xpTotal, score, focusTasks, lastActiveDate, userId, todayKey, t, loadToday]);
 
   return <DailyContext.Provider value={value}>{children}</DailyContext.Provider>;
 }

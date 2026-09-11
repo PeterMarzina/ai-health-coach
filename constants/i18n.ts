@@ -110,6 +110,8 @@ export const translations = {
     // Algemeen
     language: 'Taal',
     log_out: 'Uitloggen',
+    save_failed_title: 'Opslaan mislukt',
+    save_failed_msg: 'Je wijziging is niet opgeslagen. Controleer je internetverbinding en probeer het opnieuw.',
   },
   en: {
     // Login
@@ -216,6 +218,8 @@ export const translations = {
     // General
     language: 'Language',
     log_out: 'Log out',
+    save_failed_title: 'Saving failed',
+    save_failed_msg: 'Your change was not saved. Check your internet connection and try again.',
   },
 } as const;
 

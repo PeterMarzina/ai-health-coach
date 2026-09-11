@@ -6,11 +6,13 @@
 // Elke functie werkt op één gebruiker (user_id) + dag (date, YYYY-MM-DD). Water zelf
 // loopt via useDaily()/`daily_progress` (Sprint 3) — niet via deze service.
 import { supabase } from '../lib/supabase';
+import { localDateKey } from '../lib/dateKey';
 import type { DailyLog, DiaryDayStatus, MealEntry, MealType, Product, WeightLog } from '@/src/types/tracking';
 import { EMPTY_DAILY_LOG } from '@/src/types/tracking';
 
+// Lokale kalenderdatum — zie src/lib/dateKey.ts waarom niet toISOString().
 export function todayKey(d: Date = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  return localDateKey(d);
 }
 
 const PRODUCT_COLUMNS = 'id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fats_per_100g, brand, barcode, source, image_url';

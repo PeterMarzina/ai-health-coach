@@ -1,10 +1,11 @@
 // src/services/streak.ts — streak-systeem v1
 // Telt opeenvolgende dagen dat de gebruiker actief was (minstens 1 actie
-// voltooid). Werkt op kalenderdatums (YYYY-MM-DD) — geen tijdzone-logica,
-// dat houden we bewust simpel voor v1.
+// voltooid). Werkt op lokale kalenderdatums (YYYY-MM-DD, zie src/lib/dateKey.ts);
+// het rekenen tussen twee datums gebeurt in UTC, zodat zomertijd geen dag scheelt.
+import { localDateKey } from '../lib/dateKey';
 
 export function toDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return localDateKey(d);
 }
 
 function daysBetween(a: string, b: string): number {
