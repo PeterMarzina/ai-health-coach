@@ -28,11 +28,9 @@ npx supabase db diff --linked               # moet leeg zijn: geen drift
 Draai nooit meer SQL rechtstreeks in de dashboard-editor zonder er een migratie
 van te maken — dan ontstaat er opnieuw schema dat nergens in de repo staat.
 
-### Nog toe te passen
-
-`20260907130000_drop_orphan_users_table.sql` staat klaar maar is nog niet
-gedraaid. Ruimt de verweesde tabel `public."Users"` op (0 rijen, RLS zonder
-policies, nergens gebruikt). Draai `npx supabase db push` om dit uit te voeren.
+Migraties die via de Supabase MCP (`apply_migration`) zijn toegepast, krijgen daar
+een eigen versie-timestamp. Geef het repo-bestand exact die versie als naam
+(`list_migrations` toont hem), anders lopen repo en database weer uit de pas.
 
 ## Edge functions
 
@@ -41,11 +39,15 @@ policies, nergens gebruikt). Draai `npx supabase db push` om dit uit te voeren.
 | `ai-coach` | `functions/ai-coach/` | `NVIDIA_API_KEY` |
 | `coach-chat` | `functions/coach-chat/` | `DEEPSEEK_API_KEY` |
 | `product-lookup` | `functions/product-lookup/` | `OFF_USER_AGENT` (optioneel) |
+| `username-login` | `functions/username-login/` | — (`verify_jwt = false`, zie `config.toml`) |
 
 ```bash
 npx supabase functions deploy <slug>
 ```
 
-Er draait ook nog een vierde deployment `super-api` — een kopie van
+`username-login` draait bewust zonder JWT-check: wie inlogt heeft nog geen sessie.
+De functie controleert zelf het wachtwoord en geeft het e-mailadres nooit terug.
+
+Er draait ook nog een extra deployment `super-api` — een kopie van
 `product-lookup` onder een verkeerde slug. Die kan weg met
 `npx supabase functions delete super-api`.

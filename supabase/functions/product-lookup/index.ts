@@ -217,6 +217,8 @@ Deno.serve(async (req: Request) => {
 
     return json({ product: toClientProduct(inserted as ProductRow), extra, origin: 'openfoodfacts' });
   } catch (e) {
-    return json({ error: String((e as any)?.message ?? e) }, 500);
+    // Details alleen in de functie-logs; de ruwe fout hoort niet in de app.
+    console.error('product-lookup: onverwachte fout', e);
+    return json({ error: 'Product opzoeken mislukt, probeer het later opnieuw.' }, 500);
   }
 });

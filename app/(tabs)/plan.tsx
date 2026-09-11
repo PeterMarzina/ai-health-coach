@@ -1,10 +1,10 @@
 // app/(tabs)/plan.tsx — Plan-tab
 // Bovenaan sub-tabs (Overview/Workouts/Nutrition/Habits) die bepalen welke blokken
 // zichtbaar zijn. Toont een weekstrip, de workout van vandaag, je voeding-voortgang
-// en een afvinkbare gewoontes-lijst (habits). De vinkjes onthouden hun stand met useState.
-import React, { useEffect, useState, useMemo } from 'react';
+// en een afvinkbare gewoontes-lijst (habits) op basis van de echte dagvoortgang.
+import React, { useCallback, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Section, Bar, Check } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -64,12 +64,16 @@ export default function Plan() {
   // De huidige week (herberekend per dag) voor de weekstrip.
   const week = useMemo(() => buildWeek(), []);
 
-  // Dagen van deze week met activiteit (workout, stappen of water gelogd) — het
-  // stipje onder de dag. Vandaag komt live uit useDaily.
+  // Alles wat op andere schermen verandert, opnieuw laden zodra deze tab in beeld komt:
+  // maaltijden (Nutrition), het plan (de AI-coach past het aan) en de weekactiviteit.
+  const userId = session?.user?.id;
   const [activeDates, setActiveDates] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    const userId = session?.user?.id;
-    if (!userId) { setActiveDates(new Set()); return; }
+  const [aiPlan, setAiPlan] = useState<AIWorkoutPlan | null>(null);
+  const [consumed, setConsumed] = useState({ calories: 0, protein: 0 });
+  useFocusEffect(useCallback(() => {
+    if (!userId) return;
+
+    // Dagen van deze week met activiteit (workout, stappen of water) — het stipje onder de dag.
     supabase
       .from('daily_progress')
       .select('date, workout_done, steps, water_l')
@@ -81,32 +85,23 @@ export default function Plan() {
           .filter((r: any) => r.workout_done || r.steps > 0 || Number(r.water_l) > 0)
           .map((r: any) => r.date)
       )));
-  }, [session?.user?.id, week]);
-  const todayActive = progress.workoutDone || progress.steps > 0 || progress.waterL > 0;
 
-  // Sprint 8: het door de AI-coach gegenereerde/aangepaste workout-plan
-  // (tabel workout_plans, geschreven via de tool update_workout_plan).
-  const [aiPlan, setAiPlan] = useState<AIWorkoutPlan | null>(null);
-  useEffect(() => {
-    const userId = session?.user?.id;
-    if (!userId) { setAiPlan(null); return; }
+    // Sprint 8: het door de AI-coach gegenereerde/aangepaste workout-plan
+    // (tabel workout_plans, geschreven via de tool update_workout_plan).
     fetchAIWorkoutPlan(userId)
       .then((res) => setAiPlan(res?.plan ?? null))
       .catch(() => {});
-  }, [session?.user?.id]);
 
-  // Echte inname van vandaag (calorieën/eiwit) uit de gelogde maaltijden.
-  const [consumed, setConsumed] = useState({ calories: 0, protein: 0 });
-  useEffect(() => {
-    const userId = session?.user?.id;
-    if (!userId) { setConsumed({ calories: 0, protein: 0 }); return; }
+    // Echte inname van vandaag (calorieën/eiwit) uit de gelogde maaltijden.
     fetchMeals(userId, todayKey())
       .then((meals) => setConsumed(meals.reduce(
         (a, m) => ({ calories: a.calories + m.calories, protein: a.protein + m.proteinG }),
         { calories: 0, protein: 0 }
       )))
       .catch(() => {});
-  }, [session?.user?.id]);
+  }, [userId, week]));
+  // Vandaag komt live uit useDaily (de +-knoppen werken direct, zonder herladen).
+  const todayActive = progress.workoutDone || progress.steps > 0 || progress.waterL > 0;
 
   const showWorkout = tab === 'Overview' || tab === 'Workouts';
   const showNutri = tab === 'Overview' || tab === 'Nutrition';

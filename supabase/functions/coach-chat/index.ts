@@ -652,6 +652,48 @@ async function summarizeConversation(
   return summary;
 }
 
+// ── Guardrails: rate limit + gespreksomvang ──────────────────────────────────
+// Zelfde reden als ai-coach: DEEPSEEK_API_KEY is één gedeelde, betaalde sleutel.
+// Teller in coach_chat_calls, geschreven met de service-role key (de client mag zijn
+// eigen limiet niet kunnen resetten). Elke aanroep telt, ook summarize.
+
+const RATE_LIMIT_PER_MINUTE = 10;
+const RATE_LIMIT_PER_DAY = 80;
+const MAX_HISTORY_MESSAGES = 40;
+const MAX_MESSAGE_CHARS = 4000;
+
+// De client stuurt het hele gesprek mee; zonder plafond kan één request de
+// context (en de rekening) onbeperkt opblazen. Houd de nieuwste berichten.
+function capHistory(history: ChatRequestMessage[]): ChatRequestMessage[] {
+  return history
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) }));
+}
+
+// Geeft een foutmelding terug als de limiet bereikt is, anders null (en telt de aanroep).
+async function checkRateLimit(userId: string): Promise<string | null> {
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false } }
+  );
+  const nowMs = Date.now();
+  const [minuteRes, dayRes] = await Promise.all([
+    admin.from('coach_chat_calls').select('id', { count: 'exact', head: true })
+      .eq('user_id', userId).gte('called_at', new Date(nowMs - 60_000).toISOString()),
+    admin.from('coach_chat_calls').select('id', { count: 'exact', head: true })
+      .eq('user_id', userId).gte('called_at', new Date(nowMs - 24 * 60 * 60_000).toISOString()),
+  ]);
+  if (minuteRes.error) throw minuteRes.error;
+  if (dayRes.error) throw dayRes.error;
+  if ((minuteRes.count ?? 0) >= RATE_LIMIT_PER_MINUTE) return 'Even rustig aan — probeer het over een minuut opnieuw.';
+  if ((dayRes.count ?? 0) >= RATE_LIMIT_PER_DAY) return 'Daglimiet voor de coach bereikt, probeer het morgen opnieuw.';
+
+  const { error } = await admin.from('coach_chat_calls').insert({ user_id: userId });
+  if (error) throw error;
+  return null;
+}
+
 // ── HTTP entrypoint ──────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -662,7 +704,8 @@ Deno.serve(async (req: Request) => {
   try {
     const apiKey = Deno.env.get('DEEPSEEK_API_KEY');
     if (!apiKey) {
-      return json({ error: 'DEEPSEEK_API_KEY ontbreekt (zet als Supabase secret)' }, 500);
+      console.error('coach-chat: DEEPSEEK_API_KEY ontbreekt (zet als Supabase secret)');
+      return json({ error: 'De coach is nu niet bereikbaar, probeer het later opnieuw.' }, 500);
     }
 
     // Supabase-client met de JWT van de aanroeper: alle queries/writes vallen
@@ -678,14 +721,19 @@ Deno.serve(async (req: Request) => {
     if (userError || !userData?.user) return json({ error: 'Niet ingelogd' }, 401);
     const userId = userData.user.id;
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const mode: string = body.mode ?? 'chat';
     const lang: string = body.lang === 'en' ? 'en' : 'nl';
-    const history: ChatRequestMessage[] = Array.isArray(body.messages)
-      ? body.messages
-          .filter((m: any) => (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string')
-          .map((m: any) => ({ role: m.role, content: m.content }))
-      : [];
+    const history = capHistory(
+      Array.isArray(body.messages)
+        ? body.messages
+            .filter((m: any) => (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string')
+            .map((m: any) => ({ role: m.role, content: m.content }))
+        : []
+    );
+
+    const limited = await checkRateLimit(userId);
+    if (limited) return json({ error: limited }, 429);
 
     // Native DeepSeek-client (OpenAI SDK, DeepSeek base_url). Geen Anthropic meer nodig.
     const deepseek = new OpenAI({ apiKey, baseURL: DEEPSEEK_BASE_URL });
@@ -709,6 +757,8 @@ Deno.serve(async (req: Request) => {
     const result = await runCoachChat(deepseek, supabase, userId, mode, lang, history);
     return json(result);
   } catch (e) {
-    return json({ error: String((e as any)?.message ?? e) }, 500);
+    // Details alleen in de functie-logs; de ruwe fout (bv. van DeepSeek) hoort niet in de app.
+    console.error('coach-chat: onverwachte fout', e);
+    return json({ error: 'De coach kon nu niet antwoorden, probeer het later opnieuw.' }, 500);
   }
 });

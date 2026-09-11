@@ -68,20 +68,18 @@ export default function Onboarding() {
   }, [session]);
 
   // Real-time beschikbaarheid van de gebruikersnaam, gedebouncet zodat we niet
-  // bij elke toetsaanslag een request sturen. Gebruikt dezelfde RPC als login
-  // (get_email_by_username, zie 20260703075504_username.sql) — die kent zowel al-gecommitte
-  // usernames (profiles) als nog-niet-afgeronde signups (auth metadata).
+  // bij elke toetsaanslag een request sturen. De RPC is_username_available kent zowel
+  // al-gecommitte usernames (profiles) als nog-niet-afgeronde signups (auth metadata),
+  // telt je eigen naam als vrij, en geeft alleen true/false terug — geen e-mailadres.
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   useEffect(() => {
     const trimmed = username.trim();
     if (trimmed.length < 3) { setUsernameStatus('idle'); return; }
     setUsernameStatus('checking');
     const handle = setTimeout(async () => {
-      const { data, error } = await supabase.rpc('get_email_by_username', { p_username: trimmed });
+      const { data: available, error } = await supabase.rpc('is_username_available', { p_username: trimmed });
       if (error) { setUsernameStatus('idle'); return; }
-      const ownEmail = session?.user?.email?.toLowerCase();
-      const taken = !!data && data.toLowerCase() !== ownEmail;
-      setUsernameStatus(taken ? 'taken' : 'available');
+      setUsernameStatus(available ? 'available' : 'taken');
     }, 500);
     return () => clearTimeout(handle);
   }, [username, session]);

@@ -1,4 +1,4 @@
-// supabase/functions/ai-advice/index.ts — Edge Function (Deno)
+// supabase/functions/ai-coach/index.ts — Edge Function (Deno)
 // Proxy naar de NVIDIA-gehoste (OpenAI-compatible) deepseek-v4-pro chat-completion.
 // Draait server-side zodat de NVIDIA API-key nooit in de app-bundle terechtkomt.
 // De key wordt gelezen uit een Supabase secret (zie deploy-instructies onderaan).
@@ -61,7 +61,8 @@ Deno.serve(async (req: Request) => {
   try {
     const apiKey = Deno.env.get('NVIDIA_API_KEY');
     if (!apiKey) {
-      return json({ error: 'NVIDIA_API_KEY ontbreekt (zet als Supabase secret)' }, 500);
+      console.error('ai-coach: NVIDIA_API_KEY ontbreekt (zet als Supabase secret)');
+      return json({ error: 'De AI-coach is nu niet bereikbaar, probeer het later opnieuw.' }, 500);
     }
 
     // Wie roept aan? JWT-verificatie staat aan, maar we hebben het user-id zelf
@@ -145,9 +146,11 @@ Deno.serve(async (req: Request) => {
       }),
     });
 
+    // Details alleen in de functie-logs (Dashboard → Edge Functions → Logs): de ruwe
+    // NVIDIA-fout of stacktrace kan interne info bevatten en hoort niet in de app.
     if (!nvidiaRes.ok) {
-      const text = await nvidiaRes.text();
-      return json({ error: `NVIDIA API-fout: ${text}` }, 502);
+      console.error('ai-coach: NVIDIA API-fout', nvidiaRes.status, await nvidiaRes.text());
+      return json({ error: 'De AI-coach is nu niet bereikbaar, probeer het later opnieuw.' }, 502);
     }
 
     const data = await nvidiaRes.json();
@@ -155,6 +158,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ content });
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error('ai-coach: onverwachte fout', e);
+    return json({ error: 'Er ging iets mis bij het ophalen van advies.' }, 500);
   }
 });
