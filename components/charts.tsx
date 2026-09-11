@@ -3,7 +3,8 @@
 // LineChart (grote grafiek met assen) en Donut (ringdiagram met segmenten).
 // Alle grafieken animeren zachtjes bij het laden.
 import React, { useEffect, useId } from 'react';
-import { View, Animated, useAnimatedValue } from 'react-native';
+import { View, Animated } from 'react-native';
+import { useAnimatedValue } from './useAnimatedValue';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop, G, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from './store';
 

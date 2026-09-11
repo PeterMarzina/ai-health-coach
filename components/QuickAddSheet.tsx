@@ -3,7 +3,8 @@
 // voedingsscherm (app/nutrition/index.tsx). Schuift omhoog met een donkere
 // achtergrond; tik buiten het paneel of op een actie om te sluiten.
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Animated, Pressable, useAnimatedValue } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
+import { useAnimatedValue } from './useAnimatedValue';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from './store';
 import { Icon, IconName } from './Icon';

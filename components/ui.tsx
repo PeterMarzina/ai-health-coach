@@ -6,7 +6,8 @@
 // Bar     = voortgangsbalk die naar zijn waarde toe animeert
 // Placeholder / Divider = opvulvak en scheidslijntje
 import React, { useEffect } from 'react';
-import { View, Text, TextInput, TextInputProps, TouchableOpacity, Animated, ActivityIndicator, Platform, StyleProp, ViewStyle, useAnimatedValue } from 'react-native';
+import { View, Text, TextInput, TextInputProps, TouchableOpacity, Animated, ActivityIndicator, Platform, StyleProp, ViewStyle } from 'react-native';
+import { useAnimatedValue } from './useAnimatedValue';
 import { useTheme } from './store';
 import { Icon } from './Icon';
 
