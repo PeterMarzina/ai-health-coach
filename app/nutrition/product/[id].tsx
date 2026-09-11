@@ -14,7 +14,8 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/Icon';
-import { useTheme, useAuth } from '@/components/store';
+import { useTheme, useAuth, useLang } from '@/components/store';
+import { fill } from '@/constants/i18n';
 import { MEAL_TYPES, type MealType, type Product } from '@/src/types/tracking';
 import { addMeal, createUserProduct } from '@/src/services/trackingService';
 
@@ -45,6 +46,7 @@ function NumField({ label, value, onChangeText, editable, c }: { label: string; 
 
 export default function ProductDetailScreen() {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -110,7 +112,7 @@ export default function ProductDetailScreen() {
       });
       router.dismissTo('/nutrition');
     } catch (e: any) {
-      Alert.alert('Opslaan mislukt', e.message);
+      Alert.alert(t('save_failed_title'), e.message);
     } finally {
       setSaving(false);
     }
@@ -123,23 +125,23 @@ export default function ProductDetailScreen() {
           <Icon name="close" size={16} color={c.text} />
         </TouchableOpacity>
         <Text numberOfLines={1} style={{ flex: 1, fontSize: 18, fontWeight: '800', color: c.text }}>
-          {isNew ? 'Handmatig invoeren' : existing?.name || 'Product'}
+          {isNew ? t('manual_entry') : existing?.name || t('product')}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, gap: 18 }} keyboardShouldPersistTaps="handled">
         {/* maaltijdkeuze bovenaan */}
         <View>
-          <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>Maaltijd</Text>
+          <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>{t('meal')}</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            {MEAL_TYPES.map((t) => {
-              const active = mealType === t.key;
+            {MEAL_TYPES.map((mt) => {
+              const active = mealType === mt.key;
               return (
-                <TouchableOpacity key={t.key} activeOpacity={0.7} onPress={() => setMealType(t.key)} style={{
+                <TouchableOpacity key={mt.key} activeOpacity={0.7} onPress={() => setMealType(mt.key)} style={{
                   flex: 1, paddingVertical: 9, borderRadius: 11, alignItems: 'center',
                   borderWidth: 1, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.accent : 'transparent',
                 }}>
-                  <Text style={{ fontSize: 11.5, fontWeight: active ? '800' : '600', color: active ? c.onAccent : c.sub }}>{t.label}</Text>
+                  <Text style={{ fontSize: 11.5, fontWeight: active ? '800' : '600', color: active ? c.onAccent : c.sub }}>{t(mt.label)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -148,18 +150,18 @@ export default function ProductDetailScreen() {
 
         {isNew ? (
           <View>
-            <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>Naam</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>{t('name')}</Text>
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Bv. Zelfgemaakte smoothie"
+              placeholder={t('product_name_ph')}
               placeholderTextColor={c.dim}
               style={{ backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 12, fontSize: 14.5, color: c.text }}
             />
             {barcode ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
                 <Icon name="barcode" size={13} color={c.dim} />
-                <Text style={{ fontSize: 11.5, color: c.dim }}>Barcode {barcode} — niet gevonden, dus zelf aangevuld</Text>
+                <Text style={{ fontSize: 11.5, color: c.dim }}>{fill(t('barcode_not_found'), { code: barcode })}</Text>
               </View>
             ) : null}
           </View>
@@ -167,25 +169,25 @@ export default function ProductDetailScreen() {
 
         <View>
           <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>
-            {isNew ? 'Macro\'s per 100 gram' : 'Per 100 gram'}
+            {isNew ? t('macros_per_100g') : t('per_100g')}
           </Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
             <NumField label="Kcal" value={isNew ? calStr : (per100g.calories != null ? String(per100g.calories) : '?')} onChangeText={setCalStr} editable={isNew} c={c} />
-            <NumField label="Eiwit (g)" value={isNew ? proStr : (per100g.protein != null ? String(per100g.protein) : '?')} onChangeText={setProStr} editable={isNew} c={c} />
+            <NumField label={t('protein_g')} value={isNew ? proStr : (per100g.protein != null ? String(per100g.protein) : '?')} onChangeText={setProStr} editable={isNew} c={c} />
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <NumField label="Koolhydraten (g)" value={isNew ? carbStr : (per100g.carbs != null ? String(per100g.carbs) : '?')} onChangeText={setCarbStr} editable={isNew} c={c} />
-            <NumField label="Vetten (g)" value={isNew ? fatStr : (per100g.fats != null ? String(per100g.fats) : '?')} onChangeText={setFatStr} editable={isNew} c={c} />
+            <NumField label={t('carbs_g')} value={isNew ? carbStr : (per100g.carbs != null ? String(per100g.carbs) : '?')} onChangeText={setCarbStr} editable={isNew} c={c} />
+            <NumField label={t('fats_g')} value={isNew ? fatStr : (per100g.fats != null ? String(per100g.fats) : '?')} onChangeText={setFatStr} editable={isNew} c={c} />
           </View>
           {missing ? (
             <Text style={{ fontSize: 11.5, color: c.dim, marginTop: 8 }}>
-              Dit product mist bij Open Food Facts één of meer waarden — die tellen als 0 mee in je dagtotaal.
+              {t('missing_values')}
             </Text>
           ) : null}
         </View>
 
         <View>
-          <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>Gewicht (gram)</Text>
+          <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.sub, marginBottom: 8 }}>{t('weight_grams')}</Text>
           <TextInput
             value={grams}
             onChangeText={setGrams}
@@ -199,9 +201,9 @@ export default function ProductDetailScreen() {
         <View style={{ backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 15, padding: 15, flexDirection: 'row', justifyContent: 'space-around' }}>
           {[
             { label: 'Kcal', v: preview.calories, color: c.calories },
-            { label: 'Eiwit', v: preview.protein, color: c.protein },
-            { label: 'Koolh.', v: preview.carbs, color: c.carbs },
-            { label: 'Vet', v: preview.fats, color: c.fats },
+            { label: t('protein'), v: preview.protein, color: c.protein },
+            { label: t('carbs_short'), v: preview.carbs, color: c.carbs },
+            { label: t('fat_short'), v: preview.fats, color: c.fats },
           ].map((x) => (
             <View key={x.label} style={{ alignItems: 'center' }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: x.color }}>{x.v != null ? x.v : '—'}</Text>
@@ -218,7 +220,7 @@ export default function ProductDetailScreen() {
           disabled={saving || !canSave}
           style={{ height: 52, borderRadius: 15, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: saving || !canSave ? 0.6 : 1 }}
         >
-          {saving ? <ActivityIndicator color={c.onAccent} /> : <Text style={{ fontSize: 15, fontWeight: '700', color: c.onAccent }}>Toevoegen</Text>}
+          {saving ? <ActivityIndicator color={c.onAccent} /> : <Text style={{ fontSize: 15, fontWeight: '700', color: c.onAccent }}>{t('add')}</Text>}
         </TouchableOpacity>
       </View>
     </View>

@@ -11,6 +11,8 @@
 // DailyLog   = slaap/trainingsbelasting/hersteldscore, één rij per gebruiker per dag
 //              in `daily_logs`. Water zelf leeft al in `daily_progress` (Sprint 3,
 //              zie DailyProvider/useDaily in components/store.tsx) — niet hier dupliceren.
+import type { TKey } from '@/constants/i18n';
+
 export type ProductSource = 'reference' | 'openfoodfacts' | 'user';
 
 export interface Product {
@@ -28,11 +30,12 @@ export interface Product {
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
-export const MEAL_TYPES: { key: MealType; label: string; icon: 'sun' | 'utensils' | 'moon' | 'cookie' }[] = [
-  { key: 'breakfast', label: 'Ontbijt', icon: 'sun' },
-  { key: 'lunch', label: 'Middageten', icon: 'utensils' },
-  { key: 'dinner', label: 'Avondeten', icon: 'moon' },
-  { key: 'snack', label: 'Tussendoortjes', icon: 'cookie' },
+// `label` is een vertaalsleutel: toon hem met t(label).
+export const MEAL_TYPES: { key: MealType; label: TKey; icon: 'sun' | 'utensils' | 'moon' | 'cookie' }[] = [
+  { key: 'breakfast', label: 'meal_breakfast', icon: 'sun' },
+  { key: 'lunch', label: 'meal_lunch', icon: 'utensils' },
+  { key: 'dinner', label: 'meal_dinner', icon: 'moon' },
+  { key: 'snack', label: 'meal_snack', icon: 'cookie' },
 ];
 
 export interface MealEntry {

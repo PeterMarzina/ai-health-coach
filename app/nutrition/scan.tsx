@@ -11,7 +11,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/Icon';
-import { useTheme } from '@/components/store';
+import { useTheme, useLang } from '@/components/store';
 import type { MealType } from '@/src/types/tracking';
 import { lookupProductByBarcode } from '@/src/services/trackingService';
 
@@ -20,6 +20,7 @@ const WINDOW_SIZE = 250;
 
 export default function ScanScreen() {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ date: string; mealType: MealType }>();
   const [permission, requestPermission] = useCameraPermissions();
@@ -58,9 +59,9 @@ export default function ScanScreen() {
     } catch (e: any) {
       setBusy(false);
       locked.current = false;
-      Alert.alert('Opzoeken mislukt', e.message);
+      Alert.alert(t('lookup_failed'), e.message);
     }
-  }, [params.date, params.mealType, goManual]);
+  }, [params.date, params.mealType, goManual, t]);
 
   const closeBtn = (
     <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={{
@@ -85,15 +86,15 @@ export default function ScanScreen() {
           <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
             <Icon name="barcode" size={28} color={c.accentText} />
           </View>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: c.text, textAlign: 'center', marginBottom: 8 }}>Camera nodig om te scannen</Text>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: c.text, textAlign: 'center', marginBottom: 8 }}>{t('camera_needed_title')}</Text>
           <Text style={{ fontSize: 13.5, color: c.sub, textAlign: 'center', lineHeight: 19, marginBottom: 24 }}>
-            We gebruiken je camera alleen om de barcode op een verpakking te lezen — er wordt niets opgeslagen of gedeeld.
+            {t('camera_needed_body')}
           </Text>
           <TouchableOpacity activeOpacity={0.85} onPress={async () => { setExplained(true); await requestPermission(); }} style={{ height: 50, paddingHorizontal: 28, borderRadius: 14, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.onAccent }}>Camera toestaan</Text>
+            <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.onAccent }}>{t('allow_camera')}</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.7} onPress={() => goManual()} style={{ marginTop: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>Handmatig invoeren</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>{t('manual_entry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -106,15 +107,15 @@ export default function ScanScreen() {
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         {closeBtn}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: c.text, textAlign: 'center', marginBottom: 8 }}>Camera-toegang geweigerd</Text>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: c.text, textAlign: 'center', marginBottom: 8 }}>{t('camera_denied_title')}</Text>
           <Text style={{ fontSize: 13.5, color: c.sub, textAlign: 'center', lineHeight: 19, marginBottom: 24 }}>
-            Zet camera-toegang aan bij Instellingen om barcodes te kunnen scannen.
+            {t('camera_denied_body')}
           </Text>
           <TouchableOpacity activeOpacity={0.85} onPress={() => Linking.openSettings()} style={{ height: 50, paddingHorizontal: 28, borderRadius: 14, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.onAccent }}>Open instellingen</Text>
+            <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.onAccent }}>{t('open_settings')}</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.7} onPress={() => goManual()} style={{ marginTop: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>Handmatig invoeren</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>{t('manual_entry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -127,10 +128,10 @@ export default function ScanScreen() {
       <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
         {closeBtn}
         <TouchableOpacity activeOpacity={0.85} onPress={requestPermission} style={{ height: 50, paddingHorizontal: 28, borderRadius: 14, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.onAccent }}>Camera toestaan</Text>
+          <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.onAccent }}>{t('allow_camera')}</Text>
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.7} onPress={() => goManual()} style={{ marginTop: 16 }}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>Handmatig invoeren</Text>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>{t('manual_entry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -166,7 +167,7 @@ export default function ScanScreen() {
 
       <View style={{ position: 'absolute', left: 0, right: 0, top: insets.top + 70, alignItems: 'center' }}>
         <Text style={{ fontSize: 13.5, fontWeight: '600', color: c.overlayText, textAlign: 'center', paddingHorizontal: 32 }}>
-          Richt de camera op de barcode
+          {t('point_camera')}
         </Text>
       </View>
 
@@ -182,7 +183,7 @@ export default function ScanScreen() {
           alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
         }}>
           <Icon name="pencil" size={16} color={c.overlayText} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: c.overlayText }}>Handmatig invoeren</Text>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: c.overlayText }}>{t('manual_entry')}</Text>
         </TouchableOpacity>
       </View>
     </View>

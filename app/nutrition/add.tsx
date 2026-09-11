@@ -7,21 +7,23 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList, A
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/Icon';
-import { useTheme, useAuth } from '@/components/store';
+import { useTheme, useAuth, useLang } from '@/components/store';
 import { MEAL_TYPES, type MealType, type Product } from '@/src/types/tracking';
+import { fill, type TKey } from '@/constants/i18n';
 import {
   searchProducts, fetchRecentProducts, fetchFavoriteProducts, fetchOwnProducts,
   fetchFavoriteProductIds, setFavoriteProduct,
 } from '@/src/services/trackingService';
 
 type Tab = 'all' | 'recent' | 'favorites' | 'own';
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'all', label: 'Alles' }, { key: 'recent', label: 'Recent' },
-  { key: 'favorites', label: 'Favorieten' }, { key: 'own', label: 'Eigen items' },
+const TABS: { key: Tab; label: TKey }[] = [
+  { key: 'all', label: 'all' }, { key: 'recent', label: 'recent' },
+  { key: 'favorites', label: 'favorites' }, { key: 'own', label: 'own_items' },
 ];
 
 export default function AddScreen() {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -38,19 +40,19 @@ export default function AddScreen() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
-  const loadTab = useCallback(async (t: Tab) => {
+  const loadTab = useCallback(async (which: Tab) => {
     if (!userId) return;
     setLoading(true);
     try {
-      if (t === 'recent') setRecent(await fetchRecentProducts(userId));
-      else if (t === 'favorites') setFavorites(await fetchFavoriteProducts(userId));
-      else if (t === 'own') setOwn(await fetchOwnProducts(userId));
+      if (which === 'recent') setRecent(await fetchRecentProducts(userId));
+      else if (which === 'favorites') setFavorites(await fetchFavoriteProducts(userId));
+      else if (which === 'own') setOwn(await fetchOwnProducts(userId));
     } catch (e: any) {
-      Alert.alert('Fout', e.message);
+      Alert.alert(t('err_title'), e.message);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, t]);
 
   useEffect(() => { if (userId) fetchFavoriteProductIds(userId).then(setFavoriteIds).catch(() => {}); }, [userId]);
   useEffect(() => { if (tab !== 'all') loadTab(tab); }, [tab, loadTab]);
@@ -64,7 +66,7 @@ export default function AddScreen() {
       try {
         setAll(await searchProducts(q));
       } catch (e: any) {
-        Alert.alert('Fout', e.message);
+        Alert.alert(t('err_title'), e.message);
       } finally {
         setLoading(false);
       }
@@ -87,7 +89,7 @@ export default function AddScreen() {
       await setFavoriteProduct(userId, product.id, !isFav);
       if (tab === 'favorites') loadTab('favorites');
     } catch (e: any) {
-      Alert.alert('Fout', e.message);
+      Alert.alert(t('err_title'), e.message);
     }
   };
 
@@ -106,7 +108,7 @@ export default function AddScreen() {
           <Icon name="close" size={16} color={c.text} />
         </TouchableOpacity>
         <Text style={{ fontSize: 19, fontWeight: '800', color: c.text }}>
-          Toevoegen — {MEAL_TYPES.find((t) => t.key === mealType)?.label}
+          {fill(t('add_to_meal'), { meal: t(MEAL_TYPES.find((mt) => mt.key === mealType)?.label ?? 'meal') })}
         </Text>
       </View>
 
@@ -116,7 +118,7 @@ export default function AddScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Zoek een product (bv. kip, rijst, havermout)"
+            placeholder={t('product_search_ph')}
             placeholderTextColor={c.dim}
             style={{ flex: 1, fontSize: 14.5, color: c.text }}
             autoFocus={tab === 'all'}
@@ -125,14 +127,14 @@ export default function AddScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 10 }}>
-        {TABS.map((t) => {
-          const active = tab === t.key;
+        {TABS.map((item) => {
+          const active = tab === item.key;
           return (
-            <TouchableOpacity key={t.key} activeOpacity={0.7} onPress={() => setTab(t.key)} style={{
+            <TouchableOpacity key={item.key} activeOpacity={0.7} onPress={() => setTab(item.key)} style={{
               paddingHorizontal: 13, paddingVertical: 8, borderRadius: 10,
               borderWidth: 1, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.accent : 'transparent',
             }}>
-              <Text style={{ fontSize: 12.5, fontWeight: active ? '800' : '600', color: active ? c.onAccent : c.sub }}>{t.label}</Text>
+              <Text style={{ fontSize: 12.5, fontWeight: active ? '800' : '600', color: active ? c.onAccent : c.sub }}>{t(item.label)}</Text>
             </TouchableOpacity>
           );
         })}
@@ -147,7 +149,7 @@ export default function AddScreen() {
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 8 }}
           ListEmptyComponent={
             <Text style={{ fontSize: 13, color: c.sub, textAlign: 'center', marginTop: 30 }}>
-              {tab === 'all' && !query.trim() ? 'Typ om te zoeken.' : 'Niets gevonden.'}
+              {tab === 'all' && !query.trim() ? t('type_to_search') : t('nothing_found')}
             </Text>
           }
           renderItem={({ item }) => (
@@ -158,7 +160,7 @@ export default function AddScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{item.name}</Text>
                 <Text style={{ fontSize: 11.5, color: c.sub, marginTop: 2 }}>
-                  {item.brand ? `${item.brand} · ` : ''}{item.caloriesPer100g != null ? `${Math.round(item.caloriesPer100g)} kcal / 100g` : 'kcal onbekend'}
+                  {item.brand ? `${item.brand} · ` : ''}{item.caloriesPer100g != null ? `${Math.round(item.caloriesPer100g)} kcal / 100g` : t('kcal_unknown')}
                 </Text>
               </View>
               <TouchableOpacity activeOpacity={0.7} onPress={() => toggleFavorite(item)} style={{ padding: 6 }}>
@@ -175,7 +177,7 @@ export default function AddScreen() {
           alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
         }}>
           <Icon name="pencil" size={16} color={c.text} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Handmatig invoeren</Text>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('manual_entry')}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -9,15 +9,16 @@ import { useRouter } from 'expo-router';
 import { Card } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { Ring } from '@/components/charts';
-import { useTheme, useSettings, useAuth } from '@/components/store';
+import { useTheme, useSettings, useAuth, useLang } from '@/components/store';
+import { fill, type TKey } from '@/constants/i18n';
 import { todayKey, fetchDailyLog, fetchRecentDailyLogs, upsertDailyLog } from '@/src/services/trackingService';
 import { computeRecoveryScore } from '@/src/services/recoveryScore';
 import type { RecoveryLabel } from '@/src/services/recoveryScore';
 
-const LABEL_TEXT: Record<RecoveryLabel, { title: string; body: string; color: 'accent' | 'protein' | 'bad' }> = {
-  high: { title: 'Well recovered', body: "You're ready for a hard training session today.", color: 'accent' },
-  medium: { title: 'Moderate recovery', body: 'Train, but keep an eye on intensity — consider a lighter session.', color: 'protein' },
-  low: { title: 'Prioritize rest', body: 'Your body needs recovery — consider a rest day or light activity.', color: 'bad' },
+const LABEL_TEXT: Record<RecoveryLabel, { title: TKey; body: TKey; color: 'accent' | 'protein' | 'bad' }> = {
+  high: { title: 'rec_high_title', body: 'rec_high_body', color: 'accent' },
+  medium: { title: 'rec_medium_title', body: 'rec_medium_body', color: 'protein' },
+  low: { title: 'rec_low_title', body: 'rec_low_body', color: 'bad' },
 };
 
 function Selector({ value, onChange, count = 5, c }: { value: number | null; onChange: (v: number) => void; count?: number; c: any }) {
@@ -38,6 +39,7 @@ function Selector({ value, onChange, count = 5, c }: { value: number | null; onC
 
 export default function Recovery() {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profileContext } = useSettings();
@@ -68,11 +70,11 @@ export default function Recovery() {
       const priorHr = recent.filter((r) => r.date !== date && r.restingHeartRate != null).map((r) => r.restingHeartRate as number);
       setHrBaseline(priorHr.length >= 2 ? Math.round(priorHr.reduce((a, b) => a + b, 0) / priorHr.length) : null);
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      Alert.alert(t('err_title'), e.message);
     } finally {
       setLoading(false);
     }
-  }, [userId, date]);
+  }, [userId, date, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -100,7 +102,7 @@ export default function Recovery() {
       });
       setResult(computed);
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      Alert.alert(t('err_title'), e.message);
     } finally {
       setSaving(false);
     }
@@ -117,7 +119,7 @@ export default function Recovery() {
         <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="chevL" size={19} color={c.text} />
         </TouchableOpacity>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: c.text, letterSpacing: -0.6, flex: 1 }}>Recovery</Text>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: c.text, letterSpacing: -0.6, flex: 1 }}>{t('recovery')}</Text>
       </View>
 
       {loading ? (
@@ -130,12 +132,12 @@ export default function Recovery() {
                 <Text style={{ fontSize: 32, fontWeight: '800', color: c.text }}>{result.score}</Text>
                 <Text style={{ fontSize: 10.5, color: c.dim }}>/ 100</Text>
               </Ring>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: c.text, marginTop: 12 }}>{labelInfo!.title}</Text>
-              <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 4, textAlign: 'center', lineHeight: 18 }}>{labelInfo!.body}</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: c.text, marginTop: 12 }}>{t(labelInfo!.title)}</Text>
+              <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 4, textAlign: 'center', lineHeight: 18 }}>{t(labelInfo!.body)}</Text>
             </Card>
           ) : null}
 
-          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>Hours of sleep (target ~{sleepTargetHours}h)</Text>
+          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>{fill(t('rec_sleep_hours'), { hours: sleepTargetHours })}</Text>
           <TextInput
             value={sleepHours}
             onChangeText={setSleepHours}
@@ -145,27 +147,27 @@ export default function Recovery() {
             style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: 14, paddingHorizontal: 15, paddingVertical: 14, fontSize: 15, color: c.text, marginBottom: 20 }}
           />
 
-          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>Sleep quality (1 = poor, 5 = excellent)</Text>
+          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>{t('rec_sleep_quality')}</Text>
           <View style={{ marginBottom: 20 }}>
             <Selector value={sleepQuality} onChange={setSleepQuality} c={c} />
           </View>
 
-          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>Training load recently (1 = light, 5 = very heavy)</Text>
+          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>{t('rec_training_load')}</Text>
           <View style={{ marginBottom: 20 }}>
             <Selector value={trainingLoad} onChange={setTrainingLoad} c={c} />
           </View>
 
-          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>Resting heart rate (optional, if you know it)</Text>
+          <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600', marginBottom: 8 }}>{t('rec_resting_hr')}</Text>
           <TextInput
             value={restingHr}
             onChangeText={setRestingHr}
             keyboardType="number-pad"
-            placeholder="e.g. 58"
+            placeholder={t('rec_resting_hr_ph')}
             placeholderTextColor={c.dim}
             style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: 14, paddingHorizontal: 15, paddingVertical: 14, fontSize: 15, color: c.text, marginBottom: 8 }}
           />
           <Text style={{ fontSize: 11.5, color: c.dim, marginBottom: 24 }}>
-            {hrBaseline ? `Your recent average: ~${hrBaseline} bpm` : 'Log it a few days in a row to unlock a baseline comparison.'}
+            {hrBaseline ? fill(t('rec_hr_baseline'), { bpm: hrBaseline }) : t('rec_hr_no_baseline')}
           </Text>
 
           <TouchableOpacity
@@ -175,7 +177,7 @@ export default function Recovery() {
             style={{ height: 52, borderRadius: 15, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: !canSave || saving ? 0.6 : 1 }}
           >
             {saving ? <ActivityIndicator color={c.onAccent} /> : (
-              <Text style={{ fontSize: 16, fontWeight: '800', color: c.onAccent }}>Save & calculate</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: c.onAccent }}>{t('rec_save')}</Text>
             )}
           </TouchableOpacity>
         </>

@@ -13,7 +13,7 @@ import { fetchAIWorkoutPlan } from '@/src/services/coachChat';
 import { fetchMeals, todayKey } from '@/src/services/trackingService';
 import type { AIWorkoutPlan } from '@/src/types/coach';
 import { supabase } from '@/src/lib/supabase';
-import type { TKey } from '@/constants/i18n';
+import { fill, type TKey } from '@/constants/i18n';
 
 type PlanTab = 'overview' | 'workouts' | 'nutrition' | 'habits';
 const TABS: { id: PlanTab; label: TKey }[] = [
@@ -128,7 +128,7 @@ export default function Plan() {
   const habits: { key: string; name: string; detail: string; icon: 'dumbbell' | 'footsteps' | 'droplet'; done: boolean; onToggle?: () => void }[] = [
     { key: 'workout', name: t('habit_complete_workout'), detail: progress.workoutDone ? t('done') : t('not_yet'), icon: 'dumbbell', done: progress.workoutDone, onToggle: toggleWorkout },
     { key: 'steps', name: `${num(stepGoal)} ${t('steps_unit')}`, detail: `${num(progress.steps)} / ${num(stepGoal)}`, icon: 'footsteps', done: progress.steps >= stepGoal },
-    { key: 'water', name: t('habit_water').replace('{liters}', litres(goals.water)), detail: `${litres(progress.waterL)} / ${litres(goals.water)} L`, icon: 'droplet', done: progress.waterL >= goals.water },
+    { key: 'water', name: fill(t('habit_water'), { liters: litres(goals.water) }), detail: `${litres(progress.waterL)} / ${litres(goals.water)} L`, icon: 'droplet', done: progress.waterL >= goals.water },
   ];
 
   return (

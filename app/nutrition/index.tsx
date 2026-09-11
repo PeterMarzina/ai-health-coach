@@ -11,15 +11,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Card, Bar } from '@/components/ui';
 import { Icon, IconName } from '@/components/Icon';
-import { useTheme, useSettings, useAuth, useDaily } from '@/components/store';
+import { useTheme, useSettings, useAuth, useDaily, useLang } from '@/components/store';
 import { withAlpha } from '@/constants/theme';
+import { fill, type TKey } from '@/constants/i18n';
 import { MEAL_TYPES, type MealEntry, type MealType, type DiaryDayStatus } from '@/src/types/tracking';
 import {
   todayKey, fetchMeals, deleteMeal, fetchDiaryStatus, setDiaryCompleted,
   clearMealSection, copyMealsFromYesterday, copyMealToType,
 } from '@/src/services/trackingService';
 
-const WEEKDAY_LETTERS = ['M', 'D', 'W', 'D', 'V', 'Z', 'Z']; // ma..zo
 
 function startOfWeek(d: Date): Date {
   const day = (d.getDay() + 6) % 7; // 0 = maandag
@@ -29,23 +29,21 @@ function startOfWeek(d: Date): Date {
   return monday;
 }
 
-function headerLabel(date: string, today: string): string {
-  if (date === today) return 'Vandaag';
-  const d = new Date(`${date}T00:00:00`);
-  const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-  const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
-  const label = `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+function headerLabel(date: string, today: string, t: (k: TKey) => string, locale: string): string {
+  if (date === today) return t('today');
+  const label = new Date(`${date}T00:00:00`).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'short' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function sectionSubtitle(items: MealEntry[]): string {
+function sectionSubtitle(items: MealEntry[], t: (k: TKey) => string): string {
   if (items.length === 0) return '';
   if (items.length === 1) return items[0].name;
-  return `${items[0].name} en ${items.length - 1} meer`;
+  return fill(t('and_n_more'), { name: items[0].name, n: items.length - 1 });
 }
 
 export default function NutritionScreen() {
   const { c } = useTheme();
+  const { t, locale } = useLang();
   const insets = useSafeAreaInsets();
   const { goals } = useSettings();
   const { session } = useAuth();
@@ -81,11 +79,11 @@ export default function NutritionScreen() {
       setMeals(m);
       setDiaryStatus(status);
     } catch (e: any) {
-      Alert.alert('Fout', e.message);
+      Alert.alert(t('err_title'), e.message);
     } finally {
       setLoading(false);
     }
-  }, [userId, selectedDate, weekDates]);
+  }, [userId, selectedDate, weekDates, t]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -109,7 +107,7 @@ export default function NutritionScreen() {
     try {
       await deleteMeal(id);
     } catch (e: any) {
-      Alert.alert('Fout', e.message);
+      Alert.alert(t('err_title'), e.message);
       load();
     }
   };
@@ -120,15 +118,16 @@ export default function NutritionScreen() {
 
   const handleClearSection = (mealType: MealType, items: MealEntry[]) => {
     if (!userId || items.length === 0) return;
-    Alert.alert('Sectie wissen', `Alle items uit ${MEAL_TYPES.find((t) => t.key === mealType)?.label.toLowerCase()} verwijderen?`, [
-      { text: 'Annuleren', style: 'cancel' },
+    const mealLabel = t(MEAL_TYPES.find((mt) => mt.key === mealType)?.label ?? 'meal').toLowerCase();
+    Alert.alert(t('clear_section_title'), fill(t('clear_section_msg'), { meal: mealLabel }), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Wissen', style: 'destructive', onPress: async () => {
+        text: t('clear'), style: 'destructive', onPress: async () => {
           setMeals((prev) => prev.filter((m) => m.mealType !== mealType));
           try {
             await clearMealSection(userId, selectedDate, mealType);
           } catch (e: any) {
-            Alert.alert('Fout', e.message);
+            Alert.alert(t('err_title'), e.message);
             load();
           }
         },
@@ -141,47 +140,47 @@ export default function NutritionScreen() {
     try {
       const added = await copyMealsFromYesterday(userId, selectedDate, mealType);
       if (added.length === 0) {
-        Alert.alert('Niets om te kopiëren', 'Gisteren staat hier niets in deze sectie.');
+        Alert.alert(t('nothing_to_copy_title'), t('nothing_to_copy_msg'));
         return;
       }
       setMeals((prev) => [...prev, ...added]);
     } catch (e: any) {
-      Alert.alert('Fout', e.message);
+      Alert.alert(t('err_title'), e.message);
     }
   };
 
   const handleCopyToOtherMeal = (mealType: MealType, items: MealEntry[]) => {
     if (!userId || items.length === 0) return;
-    const targets = MEAL_TYPES.filter((t) => t.key !== mealType);
+    const targets = MEAL_TYPES.filter((mt) => mt.key !== mealType);
     Alert.alert(
-      'Kopieer naar andere maaltijd',
-      'Kies de sectie om naartoe te kopiëren',
+      t('copy_to_other_meal'),
+      t('choose_target_section'),
       [
-        ...targets.map((t) => ({
-          text: t.label,
+        ...targets.map((target) => ({
+          text: t(target.label),
           onPress: async () => {
             try {
-              const copies = await Promise.all(items.map((m) => copyMealToType(userId, m, t.key)));
+              const copies = await Promise.all(items.map((m) => copyMealToType(userId, m, target.key)));
               setMeals((prev) => [...prev, ...copies]);
             } catch (e: any) {
-              Alert.alert('Fout', e.message);
+              Alert.alert(t('err_title'), e.message);
             }
           },
         })),
-        { text: 'Annuleren', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
       ]
     );
   };
 
   const openSectionMenu = (mealType: MealType, items: MealEntry[]) => {
     Alert.alert(
-      MEAL_TYPES.find((t) => t.key === mealType)?.label ?? 'Maaltijd',
+      t(MEAL_TYPES.find((mt) => mt.key === mealType)?.label ?? 'meal'),
       undefined,
       [
-        { text: 'Kopieer naar andere maaltijd', onPress: () => handleCopyToOtherMeal(mealType, items) },
-        { text: 'Kopieer van gisteren', onPress: () => handleCopyYesterday(mealType) },
-        { text: 'Wis maaltijd', style: 'destructive', onPress: () => handleClearSection(mealType, items) },
-        { text: 'Annuleren', style: 'cancel' },
+        { text: t('copy_to_other_meal'), onPress: () => handleCopyToOtherMeal(mealType, items) },
+        { text: t('copy_from_yesterday'), onPress: () => handleCopyYesterday(mealType) },
+        { text: t('clear_meal'), style: 'destructive', onPress: () => handleClearSection(mealType, items) },
+        { text: t('cancel'), style: 'cancel' },
       ]
     );
   };
@@ -194,7 +193,7 @@ export default function NutritionScreen() {
     try {
       await setDiaryCompleted(userId, selectedDate, next);
     } catch (e: any) {
-      Alert.alert('Fout', e.message);
+      Alert.alert(t('err_title'), e.message);
       load();
     } finally {
       setCompleting(false);
@@ -202,9 +201,9 @@ export default function NutritionScreen() {
   };
 
   const macros = [
-    { label: 'Koolhydraten', v: consumed.carbs, goal: goals.carbs, hue: 'carbs' as const },
-    { label: 'Vetten', v: consumed.fats, goal: goals.fats, hue: 'fats' as const },
-    { label: 'Eiwitten', v: consumed.protein, goal: goals.protein, hue: 'protein' as const },
+    { label: t('carbs'), v: consumed.carbs, goal: goals.carbs, hue: 'carbs' as const },
+    { label: t('fats'), v: consumed.fats, goal: goals.fats, hue: 'fats' as const },
+    { label: t('protein'), v: consumed.protein, goal: goals.protein, hue: 'protein' as const },
   ];
 
   return (
@@ -216,7 +215,7 @@ export default function NutritionScreen() {
             <Icon name="chevL" size={18} color={c.text} />
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedDate(today)} disabled={selectedDate === today} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: c.text, letterSpacing: -0.4 }}>{headerLabel(selectedDate, today)}</Text>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: c.text, letterSpacing: -0.4 }}>{headerLabel(selectedDate, today, t, locale)}</Text>
             {selectedDate !== today ? <Icon name="chevDown" size={16} color={c.dim} /> : null}
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
@@ -227,7 +226,7 @@ export default function NutritionScreen() {
 
         {/* weekstrip */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 }}>
-          {weekDates.map((date, i) => {
+          {weekDates.map((date) => {
             const d = new Date(`${date}T00:00:00`);
             const status = diaryStatus[date];
             const isSelected = date === selectedDate;
@@ -237,7 +236,7 @@ export default function NutritionScreen() {
             const circleBorder = isSelected ? c.accent : isCompleted ? c.accent : c.line;
             return (
               <TouchableOpacity key={date} activeOpacity={0.7} onPress={() => setSelectedDate(date)} style={{ alignItems: 'center', gap: 6, width: 34 }}>
-                <Text style={{ fontSize: 11, fontWeight: '600', color: isSelected ? c.accentText : c.dim }}>{WEEKDAY_LETTERS[i]}</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: isSelected ? c.accentText : c.dim }}>{d.toLocaleDateString(locale, { weekday: 'narrow' })}</Text>
                 <View style={{
                   width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
                   backgroundColor: circleBg, borderWidth: isSelected ? 2 : 1, borderColor: circleBorder,
@@ -261,10 +260,10 @@ export default function NutritionScreen() {
             <Card pad={16} style={{ marginBottom: 14 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
                 <Text style={{ fontSize: 20, fontWeight: '800', color: c.text }}>
-                  {consumed.calories} <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>/ {goals.calories} cal</Text>
+                  {consumed.calories} <Text style={{ fontSize: 13, fontWeight: '600', color: c.sub }}>/ {goals.calories} kcal</Text>
                 </Text>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: overBudget ? c.bad : c.sub }}>
-                  {overBudget ? `${Math.abs(remaining)} te veel` : `${remaining} te gaan`}
+                  {overBudget ? fill(t('kcal_over'), { n: Math.abs(remaining) }) : fill(t('kcal_left'), { n: remaining })}
                 </Text>
               </View>
               <Bar value={consumed.calories} max={goals.calories || 1} color={overBudget ? c.bad : c.calories} height={9} />
@@ -273,7 +272,7 @@ export default function NutritionScreen() {
             {/* macro-kaart */}
             <Card pad={16} style={{ marginBottom: 14, gap: 14 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>Macro's</Text>
+                <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>{t('macros')}</Text>
                 <TouchableOpacity activeOpacity={0.7} onPress={() => setMacroUnit((u) => (u === 'g' ? '%' : 'g'))} style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontSize: 11, fontWeight: '800', color: c.accentText }}>{macroUnit === 'g' ? '%' : 'g'}</Text>
                 </TouchableOpacity>
@@ -307,16 +306,16 @@ export default function NutritionScreen() {
                         <Icon name={section.icon} size={17} color={c.accentText} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>{section.label}</Text>
+                        <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>{t(section.label)}</Text>
                         {items.length > 0 ? (
-                          <Text numberOfLines={1} style={{ fontSize: 12, color: c.sub, marginTop: 1 }}>{sectionSubtitle(items)}</Text>
+                          <Text numberOfLines={1} style={{ fontSize: 12, color: c.sub, marginTop: 1 }}>{sectionSubtitle(items, t)}</Text>
                         ) : null}
                       </View>
                       {items.length > 0 ? (
                         <Text style={{ fontSize: 13, fontWeight: '700', color: c.text, marginRight: 2 }}>{total} <Text style={{ fontSize: 10.5, color: c.dim, fontWeight: '500' }}>kcal</Text></Text>
                       ) : null}
                       <TouchableOpacity activeOpacity={0.7} onPress={() => openAdd(section.key)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: c.accent }}>
-                        <Text style={{ fontSize: 12.5, fontWeight: '700', color: c.onAccent }}>Registreer</Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: '700', color: c.onAccent }}>{t('log_food')}</Text>
                       </TouchableOpacity>
                       {items.length > 0 ? (
                         <TouchableOpacity activeOpacity={0.7} onPress={() => openSectionMenu(section.key, items)} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
@@ -330,7 +329,7 @@ export default function NutritionScreen() {
                           <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: c.line }}>
                             <View style={{ flex: 1 }}>
                               <Text style={{ fontSize: 13, fontWeight: '600', color: c.text }}>{m.name}{m.grams != null ? ` · ${m.grams}g` : ''}</Text>
-                              <Text style={{ fontSize: 11, color: c.dim, marginTop: 1 }}>P {m.proteinG}g · K {m.carbsG}g · V {m.fatsG}g</Text>
+                              <Text style={{ fontSize: 11, color: c.dim, marginTop: 1 }}>{fill(t('macro_line'), { p: m.proteinG, c: m.carbsG, f: m.fatsG })}</Text>
                             </View>
                             <Text style={{ fontSize: 12.5, fontWeight: '700', color: c.text }}>{m.calories}</Text>
                             <TouchableOpacity activeOpacity={0.7} onPress={() => handleDeleteMeal(m.id)} style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}>
@@ -359,7 +358,7 @@ export default function NutritionScreen() {
                 <>
                   <Icon name="check" size={16} color={diaryCompleted ? c.accentText : c.onAccent} strokeWidth={2.6} />
                   <Text style={{ fontSize: 14.5, fontWeight: '700', color: diaryCompleted ? c.accentText : c.onAccent }}>
-                    {diaryCompleted ? 'Dagboek voltooid' : 'Dagboek voltooien'}
+                    {diaryCompleted ? t('diary_completed') : t('complete_diary')}
                   </Text>
                 </>
               )}
@@ -398,6 +397,7 @@ function AddSheet({
   open, onClose, onSearch, onRecent, onManual, onBarcode,
 }: { open: boolean; onClose: () => void; onSearch: () => void; onRecent: () => void; onManual: () => void; onBarcode: () => void }) {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = React.useState(open);
   const y = React.useRef(new Animated.Value(1)).current;
@@ -421,10 +421,10 @@ function AddSheet({
   const go = (fn: () => void) => { onClose(); setTimeout(fn, 180); };
 
   const items: { key: string; label: string; sub: string; icon: IconName; onPress: () => void }[] = [
-    { key: 'barcode', label: 'Barcode scannen', sub: 'Scan de verpakking', icon: 'barcode', onPress: onBarcode },
-    { key: 'search', label: 'Zoeken', sub: 'Zoek in de productendatabase', icon: 'search', onPress: onSearch },
-    { key: 'recent', label: 'Recent', sub: 'Eerder gelogde items', icon: 'chart', onPress: onRecent },
-    { key: 'manual', label: 'Handmatig invoeren', sub: 'Vul zelf de macro\'s in', icon: 'pencil', onPress: onManual },
+    { key: 'barcode', label: t('scan_barcode'), sub: t('scan_barcode_sub'), icon: 'barcode', onPress: onBarcode },
+    { key: 'search', label: t('search'), sub: t('search_sub'), icon: 'search', onPress: onSearch },
+    { key: 'recent', label: t('recent'), sub: t('recent_sub'), icon: 'chart', onPress: onRecent },
+    { key: 'manual', label: t('manual_entry'), sub: t('manual_entry_sub'), icon: 'pencil', onPress: onManual },
   ];
 
   if (!mounted) return null;
@@ -442,7 +442,7 @@ function AddSheet({
         paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 24,
       }}>
         <View style={{ width: 38, height: 4, borderRadius: 4, backgroundColor: c.faint, alignSelf: 'center', marginBottom: 16 }} />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginHorizontal: 4, marginBottom: 14 }}>Snel toevoegen</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginHorizontal: 4, marginBottom: 14 }}>{t('quick_add')}</Text>
         <View style={{ gap: 9 }}>
           {items.map((it) => (
             <TouchableOpacity key={it.key} activeOpacity={0.75} onPress={() => go(it.onPress)} style={{
