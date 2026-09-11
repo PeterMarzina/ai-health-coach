@@ -12,11 +12,12 @@ import { useTheme, useAuth, useSettings, useDaily } from '@/components/store';
 import { fetchAIWorkoutPlan } from '@/src/services/coachChat';
 import { fetchMeals, todayKey } from '@/src/services/trackingService';
 import type { AIWorkoutPlan } from '@/src/types/coach';
+import { supabase } from '@/src/lib/supabase';
 
 const TABS = ['Overview', 'Workouts', 'Nutrition', 'Habits'];
 
 // Bouwt de huidige week (ma–zo) rond een gegeven dag: dagnaam, dag-van-de-maand,
-// of het vandaag is en of de dag al voorbij is. Vervangt de vaste DATA.weekDays.
+// datum-key en of het vandaag is. Of er die dag iets gedaan is, komt uit daily_progress.
 function buildWeek(base = new Date()) {
   const mondayOffset = (base.getDay() + 6) % 7; // 0 = zondag → 6 dagen na maandag
   const monday = new Date(base);
@@ -27,7 +28,7 @@ function buildWeek(base = new Date()) {
     const dt = new Date(monday);
     dt.setDate(monday.getDate() + i);
     const key = todayKey(dt);
-    return { d, n: dt.getDate(), today: key === todayStr, done: key < todayStr };
+    return { d, n: dt.getDate(), key, today: key === todayStr };
   });
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
@@ -62,6 +63,26 @@ export default function Plan() {
 
   // De huidige week (herberekend per dag) voor de weekstrip.
   const week = useMemo(() => buildWeek(), []);
+
+  // Dagen van deze week met activiteit (workout, stappen of water gelogd) — het
+  // stipje onder de dag. Vandaag komt live uit useDaily.
+  const [activeDates, setActiveDates] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) { setActiveDates(new Set()); return; }
+    supabase
+      .from('daily_progress')
+      .select('date, workout_done, steps, water_l')
+      .eq('user_id', userId)
+      .gte('date', week.days[0].key)
+      .lte('date', week.days[6].key)
+      .then(({ data }) => setActiveDates(new Set(
+        (data ?? [])
+          .filter((r: any) => r.workout_done || r.steps > 0 || Number(r.water_l) > 0)
+          .map((r: any) => r.date)
+      )));
+  }, [session?.user?.id, week]);
+  const todayActive = progress.workoutDone || progress.steps > 0 || progress.waterL > 0;
 
   // Sprint 8: het door de AI-coach gegenereerde/aangepaste workout-plan
   // (tabel workout_plans, geschreven via de tool update_workout_plan).
@@ -117,13 +138,6 @@ export default function Plan() {
             <Text style={{ fontSize: 11.5, color: c.sub, fontWeight: '600', letterSpacing: 0.4 }}>THIS WEEK</Text>
             <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text, marginTop: 2 }}>{week.label}</Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {(['chevL', 'chevR'] as const).map((g) => (
-              <TouchableOpacity key={g} style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={g} size={15} color={c.sub} />
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           {week.days.map((d) => (
@@ -132,7 +146,7 @@ export default function Plan() {
               <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: d.today ? c.accent : 'transparent' }}>
                 <Text style={{ fontWeight: d.today ? '800' : '600', fontSize: 13.5, color: d.today ? c.onAccent : c.text }}>{d.n}</Text>
               </View>
-              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: d.done || d.today ? c.accent : c.faint }} />
+              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: (d.today ? todayActive : activeDates.has(d.key)) ? c.accent : c.faint }} />
             </View>
           ))}
         </View>

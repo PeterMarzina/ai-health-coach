@@ -18,7 +18,6 @@ import type { WeightLog } from '@/src/types/tracking';
 
 const RANGES = ['1W', '1M', '3M', '6M', '1Y', 'All'] as const;
 const RANGE_DAYS: Record<(typeof RANGES)[number], number> = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365, All: 3650 };
-const TABS = ['Overview', 'Trends', 'History'];
 
 function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -39,7 +38,6 @@ export default function Progress() {
   const userId = session?.user?.id;
 
   const [range, setRange] = useState<(typeof RANGES)[number]>('1M');
-  const [tab, setTab] = useState('Overview');
   const [loading, setLoading] = useState(true);
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [sleepSeries, setSleepSeries] = useState<{ date: string; hours: number }[]>([]);
@@ -88,26 +86,20 @@ export default function Progress() {
   const latestWeight = weightLogs.length ? weightLogs[weightLogs.length - 1].weightKg : measurements.weight;
   const weightDelta = weightLogs.length >= 2 ? weightLogs[weightLogs.length - 1].weightKg - weightLogs[0].weightKg : 0;
 
+  // Lichaamssamenstelling op basis van het meest recente gewicht. Zonder gewicht of
+  // vetpercentage valt er niets te berekenen (en zou de Donut door 0 delen).
   const bodyFatPct = measurements.bodyFat ?? 0;
-  const fatMassKg = Math.round(measurements.weight * (bodyFatPct / 100) * 10) / 10;
-  const leanMassKg = Math.round((measurements.weight - fatMassKg) * 10) / 10;
-  const bodySegments = [
-    { label: 'Lean Mass', kg: leanMassKg, pct: Math.round((leanMassKg / measurements.weight) * 100), hue: 'accent' },
-    { label: 'Fat Mass', kg: fatMassKg, pct: Math.round((fatMassKg / measurements.weight) * 100), hue: 'fats' },
-  ];
+  const hasBodyComp = latestWeight > 0 && bodyFatPct > 0;
+  const fatMassKg = Math.round(latestWeight * (bodyFatPct / 100) * 10) / 10;
+  const leanMassKg = Math.round((latestWeight - fatMassKg) * 10) / 10;
+  const bodySegments = hasBodyComp ? [
+    { label: 'Lean Mass', kg: leanMassKg, pct: Math.round((leanMassKg / latestWeight) * 100), hue: 'accent' },
+    { label: 'Fat Mass', kg: fatMassKg, pct: Math.round((fatMassKg / latestWeight) * 100), hue: 'fats' },
+  ] : [];
 
   return (
     <Screen>
       <Text style={{ fontSize: 30, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 16 }}>Progress</Text>
-
-      {/* tabs */}
-      <View style={{ flexDirection: 'row', gap: 22, borderBottomWidth: 1, borderBottomColor: c.line, marginBottom: 18, paddingHorizontal: 2 }}>
-        {TABS.map((t) => (
-          <Text key={t} style={{ fontSize: 14.5, fontWeight: tab === t ? '700' : '500', color: tab === t ? c.text : c.sub, paddingBottom: 11 }}>
-            {t}
-          </Text>
-        ))}
-      </View>
 
       {/* time chips */}
       <View style={{ flexDirection: 'row', gap: 7, marginBottom: 18 }}>
@@ -126,7 +118,7 @@ export default function Progress() {
               <View>
                 <Text style={{ fontSize: 13, color: c.sub, fontWeight: '600' }}>Weight</Text>
                 <Text style={{ fontSize: 27, fontWeight: '800', color: c.text, letterSpacing: -0.8, marginTop: 1 }}>
-                  {latestWeight.toFixed(1)} <Text style={{ fontSize: 14, fontWeight: '600', color: c.sub }}>kg</Text>
+                  {latestWeight > 0 ? latestWeight.toFixed(1) : '—'} <Text style={{ fontSize: 14, fontWeight: '600', color: c.sub }}>kg</Text>
                 </Text>
               </View>
               {weightLogs.length >= 2 ? (
@@ -197,12 +189,23 @@ export default function Progress() {
           </Card>
 
           {/* body composition */}
-          <Section title="Body Composition" action="Edit" onAction={() => router.push('/goals')} />
+          <Section title="Body Composition" action="Edit" onAction={() => router.push('/measurements')} />
+          {!hasBodyComp ? (
+            <Card pad={16} style={{ marginBottom: 16 }}>
+              <EmptyState
+                icon="ruler"
+                title="No body composition yet"
+                body="Add your weight and body fat % in Measurements to see lean and fat mass."
+                actionLabel="Go to Measurements"
+                onAction={() => router.push('/measurements')}
+              />
+            </Card>
+          ) : (
           <Card pad={16} style={{ marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 18 }}>
             <View style={{ position: 'relative', width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
               <Donut segments={bodySegments.map((b) => ({ value: b.pct, color: (c as any)[b.hue] || c.accent }))} size={120} stroke={16} />
               <View style={{ position: 'absolute', alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{measurements.weight.toFixed(1)}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{latestWeight.toFixed(1)}</Text>
                 <Text style={{ fontSize: 9.5, color: c.dim }}>kg total</Text>
               </View>
             </View>
@@ -217,6 +220,7 @@ export default function Progress() {
               ))}
             </View>
           </Card>
+          )}
 
           {/* workout volume */}
           <Section title="Training Volume" />

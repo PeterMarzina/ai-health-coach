@@ -16,7 +16,6 @@ import { supabase } from '../src/lib/supabase';
 import { DEFAULT_GOALS, DEFAULT_MEASUREMENTS } from '@/constants/data';
 import { buildAIProfile } from '@/src/services/aiProfile';
 import { generateAdvice } from '@/src/services/adviceGenerator';
-import { getAIAdvice } from '@/src/services/aiAdvice';
 import { generateFollowUpQuestions } from '@/src/services/followUpQuestions';
 import { todayKey, logWeight } from '@/src/services/trackingService';
 import type { FitnessLevel, Goal, RoutineType, ActivityLevel, FollowUpAnswer } from '@/src/types/aiProfile';
@@ -58,10 +57,6 @@ export default function Onboarding() {
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-
-  // Tijdelijk, alleen om de Supabase Edge Function 'ai-advice' end-to-end te testen.
-  const [aiTestLoading, setAiTestLoading] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<string | null>(null);
 
   // ── Antwoorden ──
   // Gebruikersnaam is gekozen bij registreren (opgeslagen in de auth user metadata);
@@ -182,20 +177,6 @@ export default function Onboarding() {
     followUps,
   }) : null;
   const advice = aiProfile ? generateAdvice(aiProfile, lang) : null;
-
-  const handleTestAiAdvice = async () => {
-    if (!aiProfile) return;
-    setAiTestLoading(true);
-    setAiTestResult(null);
-    try {
-      const text = await getAIAdvice(aiProfile, lang);
-      setAiTestResult(text);
-    } catch (e: any) {
-      Alert.alert(t('err_title'), e.message ?? t('ob_ai_test_error'));
-    } finally {
-      setAiTestLoading(false);
-    }
-  };
 
   const handleFinish = async () => {
     if (!aiProfile) return;
@@ -545,23 +526,6 @@ export default function Onboarding() {
             </View>
             <Text style={{ fontSize: 14.5, color: c.text, lineHeight: 21 }}>{advice.body}</Text>
           </Card>
-
-          {/* Tijdelijke test-knop voor de Supabase Edge Function 'ai-advice'. */}
-          <TouchableOpacity activeOpacity={0.85} onPress={handleTestAiAdvice} disabled={aiTestLoading}
-            style={{ marginTop: 14, height: 46, borderRadius: 13, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: aiTestLoading ? 0.6 : 1 }}>
-            {aiTestLoading ? <ActivityIndicator color={c.text} /> : (
-              <>
-                <Icon name="sparkle" size={15} color={c.accentText} fill={c.accentText} />
-                <Text style={{ color: c.text, fontSize: 13.5, fontWeight: '700' }}>{t('ob_ai_test_btn')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {aiTestResult ? (
-            <Card pad={16} style={{ marginTop: 12 }}>
-              <Text style={{ fontSize: 14, color: c.text, lineHeight: 20 }}>{aiTestResult}</Text>
-            </Card>
-          ) : null}
         </>
       )}
 

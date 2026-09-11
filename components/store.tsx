@@ -54,6 +54,8 @@ type SettingsCtx = {
   // null = nog niet geladen/ingevuld.
   profileContext: AIProfile | null;
   setProfileContext: (p: AIProfile) => void;
+  // profiles.full_name — ook gevuld voor accounts van vóór het AI-profiel (Sprint 2).
+  fullName: string | null;
   // Herlaadt goals/measurements/profiel uit Supabase — nodig nadat de AI-coach
   // via een action tool (bv. adjust_nutrition_targets) server-side iets wijzigde.
   refreshSettings: () => void;
@@ -65,6 +67,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [goals, setGoalsState] = useState<Goals>(DEFAULT_GOALS);
   const [measurements, setMeasurementsState] = useState<Measurements>(DEFAULT_MEASUREMENTS);
   const [profileContext, setProfileContextState] = useState<AIProfile | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
   // Wie is er ingelogd? (null = niemand). Nodig om naar de juiste profiel-rij te schrijven.
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -73,12 +76,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   async function loadFromSupabase(id: string) {
     const { data } = await supabase
       .from('profiles')
-      .select('goals, measurements, profile_context')
+      .select('goals, measurements, profile_context, full_name')
       .eq('id', id)
       .single();
     if (data?.goals) setGoalsState({ ...DEFAULT_GOALS, ...data.goals });
     if (data?.measurements) setMeasurementsState({ ...DEFAULT_MEASUREMENTS, ...data.measurements });
     if (data?.profile_context) setProfileContextState(data.profile_context as AIProfile);
+    setFullName(data?.full_name ?? null);
   }
 
   // Bij opstarten: kijk of er al iemand is ingelogd, en luister naar in-/uitloggen.
@@ -98,6 +102,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setGoalsState(DEFAULT_GOALS);    // uitgelogd → terug naar standaard
         setMeasurementsState(DEFAULT_MEASUREMENTS);
         setProfileContextState(null);
+        setFullName(null);
       }
     });
     return () => sub.subscription.unsubscribe();
@@ -125,7 +130,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (userId) loadFromSupabase(userId);
   };
 
-  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, refreshSettings }), [goals, measurements, profileContext, userId]);
+  const value = useMemo(() => ({ goals, setGoals, measurements, setMeasurements, profileContext, setProfileContext, fullName, refreshSettings }), [goals, measurements, profileContext, fullName, userId]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
@@ -198,15 +203,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Zodra er een sessie is: kijk of het profiel al is ingevuld (full_name aanwezig?).
+  // Zodra er een sessie is: kijk of het profiel al is ingevuld. Alleen full_name is
+  // niet genoeg: accounts van vóór Sprint 2 hebben wel een naam maar geen AI-profiel,
+  // en dan zegt de coach "rond eerst de onboarding af" zonder dat je er ooit komt.
   useEffect(() => {
     if (!session) { setOnboarded(null); return; }
     supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, profile_context')
       .eq('id', session.user.id)
       .maybeSingle()
-      .then(({ data }) => setOnboarded(!!data?.full_name));
+      .then(({ data }) => setOnboarded(!!data?.full_name && !!data?.profile_context));
   }, [session]);
 
   const markOnboarded = () => setOnboarded(true);

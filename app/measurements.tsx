@@ -43,7 +43,9 @@ export default function Measurements() {
           <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.text, marginBottom: 8 }}>{it.label}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <TextInput
-              value={String(vals[it.key as keyof typeof vals])}
+              value={vals[it.key as keyof typeof vals] ? String(vals[it.key as keyof typeof vals]) : ''}
+              placeholder="—"
+              placeholderTextColor={c.dim}
               onChangeText={(t) => {
                 const v = parseFloat(t) || 0;
                 setVals((a) => ({ ...a, [it.key]: v }));

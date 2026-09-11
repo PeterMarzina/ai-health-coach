@@ -50,7 +50,7 @@ export function Ring({
     </View>
   );
 }
-
+// Dit maakt een grafiekpad van een lijst getallen, met padding en schaalverdeling naar de opgegeven breedte en hoogte.
 function buildPath(vals: number[], w: number, h: number, pad = 2) {
   const min = Math.min(...vals), max = Math.max(...vals);
   const rng = max - min || 1;
@@ -69,13 +69,15 @@ export function Sparkline({
   const { c } = useTheme();
   const col = color || c.accent;
   const uid = useMemo(() => 'sp' + Math.random().toString(36).slice(2, 7), []);
+  // Hooks vóór de early return: anders crasht React ("Rendered more hooks") zodra
+  // `data` van < 2 naar ≥ 2 punten gaat, bv. wanneer Home zijn data binnenkrijgt.
+  const op = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(op, { toValue: 1, duration: 600, delay: 250, useNativeDriver: true }).start(); }, []);
   // Met minder dan 2 punten is er geen lijn te tekenen (buildPath zou delen door 0);
   // hou de ruimte leeg zodat de kaart-layout niet verspringt.
   if (!data || data.length < 2) return <View style={{ width: w, height: h }} />;
   const d = buildPath(data, w, h, 2);
   const area = `${d} L${w - 2} ${h - 2} L2 ${h - 2} Z`;
-  const op = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(op, { toValue: 1, duration: 600, delay: 250, useNativeDriver: true }).start(); }, []);
   return (
     <Animated.View style={{ opacity: op }}>
       <Svg width={w} height={h}>

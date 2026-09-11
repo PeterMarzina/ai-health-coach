@@ -6,7 +6,9 @@
 // JSON) — dat is voor het taalmodel minder foutgevoelig om te lezen dan zelf
 // JSON te moeten parsen, en laat geen ruimte voor het verzinnen van velden
 // die niet zijn aangeleverd.
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { todayKey } from './trackingService';
 import type { AIProfile } from '@/src/types/aiProfile';
 import type { Lang } from '@/constants/i18n';
 
@@ -49,4 +51,17 @@ export async function getAIAdvice(profile: AIProfile, lang: Lang = 'nl'): Promis
   });
   if (error) throw error;
   return data.content as string;
+}
+
+// Home vraagt dit op bij elk openen van het scherm. Zonder cache is dat elke keer
+// een betaalde call op de gedeelde NVIDIA-key (en na 10x per minuut een 429).
+// Het advies hangt alleen van het profiel af, dus één keer per dag per taal is genoeg.
+export async function getDailyAIAdvice(userId: string, profile: AIProfile, lang: Lang): Promise<string> {
+  const key = `ai-advice:${userId}:${todayKey()}:${lang}`;
+  const cached = await AsyncStorage.getItem(key).catch(() => null);
+  if (cached) return cached;
+
+  const text = (await getAIAdvice(profile, lang)).trim();
+  if (text) await AsyncStorage.setItem(key, text).catch(() => {});
+  return text;
 }

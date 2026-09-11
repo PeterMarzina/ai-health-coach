@@ -1,26 +1,53 @@
 // app/(tabs)/profile.tsx — Profiel-tab
-// Toont avatar + naam/e-mail, een statistiek-overzicht en een menu naar
-// Goals en Measurements. Rechtsboven wissel je met de zon/maan-knop tussen
+// Toont avatar (initialen) + naam/e-mail, een statistiek-overzicht en een menu naar
+// Goals, Measurements en Recovery. Rechtsboven wissel je van taal en tussen
 // licht en donker thema (toggle() uit useTheme).
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { Card, Placeholder } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useTheme, useLang } from '@/components/store';
-import { DATA } from '@/constants/data';
+import { useTheme, useLang, useAuth, useSettings, useDaily } from '@/components/store';
+import { fetchCompletedSessionCount } from '@/src/services/workouts';
 import { supabase } from '../../src/lib/supabase'; // backend (Supabase)
+
+// "Peter Marzina" → "PM", "peter" → "P"
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase();
+}
 
 export default function Profile() {
   const { c, mode, toggle } = useTheme();
   const { lang, setLang, t } = useLang();
+  const { session } = useAuth();
+  const { fullName, profileContext } = useSettings();
+  const { streakDays, level, xpTotal } = useDaily();
   const router = useRouter();
-  // Het echte e-mailadres van de ingelogde gebruiker (uit de Supabase-sessie).
-  const [email, setEmail] = useState('');
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ''));
-  }, []);
+
+  const userId = session?.user?.id;
+  const email = session?.user?.email ?? '';
+  const name = fullName || profileContext?.answers.name || email.split('@')[0] || '';
+
+  // Aantal afgeronde workouts — opnieuw bij elke focus, want je komt hier vaak
+  // terug direct na het afronden van een training.
+  const [workoutCount, setWorkoutCount] = useState<number | null>(null);
+  useFocusEffect(useCallback(() => {
+    if (!userId) return;
+    fetchCompletedSessionCount(userId)
+      .then(setWorkoutCount)
+      .catch(() => setWorkoutCount(null));
+  }, [userId]));
+
+  const stats = [
+    { label: 'Workouts', value: workoutCount != null ? String(workoutCount) : '—', sub: 'Total' },
+    { label: 'Current Streak', value: String(streakDays), sub: streakDays === 1 ? 'Day' : 'Days' },
+    { label: 'Level', value: String(level), sub: `${xpTotal.toLocaleString('en-US')} XP` },
+  ];
 
   // Uitloggen: Supabase wist de sessie; de auth-poort stuurt je daarna naar login.
   const handleLogout = () => supabase.auth.signOut();
@@ -28,11 +55,9 @@ export default function Profile() {
   return (
     <Screen scroll={false} padTop={0}>
       <View style={{ flex: 1, paddingTop: 54, paddingHorizontal: 16 }}>
-        {/* header */}
+        {/* header: lege ruimte links even breed als de knoppen rechts, zodat de titel gecentreerd blijft */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <TouchableOpacity activeOpacity={0.7} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="gear" size={19} color={c.sub} />
-          </TouchableOpacity>
+          <View style={{ width: 84 }} />
           <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Profile</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {/* Taalknop: wisselt tussen Nederlands en Engels */}
@@ -46,25 +71,22 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* avatar + identity */}
+        {/* avatar (initialen) + identity */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <View style={{ position: 'relative' }}>
-            <Placeholder label="AVATAR" style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 2, borderColor: c.accent }} />
-            <View style={{ position: 'absolute', bottom: -2, right: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: c.accent, borderWidth: 3, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="camera" size={13} color={c.onAccent} />
-            </View>
+          <View style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 2, borderColor: c.accent, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 26, fontWeight: '800', color: c.accentText, letterSpacing: -0.5 }}>{initialsOf(name)}</Text>
           </View>
-          <View>
-            <Text style={{ fontSize: 23, fontWeight: '800', color: c.text, letterSpacing: -0.4 }}>{DATA.user.name}</Text>
-            <Text style={{ fontSize: 13.5, color: c.sub, marginTop: 2 }}>{email || DATA.user.email}</Text>
+          <View style={{ flex: 1 }}>
+            <Text numberOfLines={1} style={{ fontSize: 23, fontWeight: '800', color: c.text, letterSpacing: -0.4 }}>{name}</Text>
+            <Text numberOfLines={1} style={{ fontSize: 13.5, color: c.sub, marginTop: 2 }}>{email}</Text>
           </View>
         </View>
 
         {/* stats */}
-        <Section title="Stats Overview" action="Edit" />
+        <Section title="Stats Overview" />
         <Card pad={0} style={{ flexDirection: 'row', marginBottom: 22, overflow: 'hidden' }}>
-          {DATA.profile.stats.map((s, i) => (
-            <View key={s.label} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 8, alignItems: 'center', borderRightWidth: i < DATA.profile.stats.length - 1 ? 1 : 0, borderRightColor: c.line }}>
+          {stats.map((s, i) => (
+            <View key={s.label} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 8, alignItems: 'center', borderRightWidth: i < stats.length - 1 ? 1 : 0, borderRightColor: c.line }}>
               <Text style={{ fontSize: 11, color: c.sub, fontWeight: '600' }}>{s.label}</Text>
               <Text style={{ fontSize: 25, fontWeight: '800', color: i === 1 ? c.accentText : c.text, letterSpacing: -0.5, marginVertical: 5 }}>{s.value}</Text>
               <Text style={{ fontSize: 11, color: c.dim }}>{s.sub}</Text>
@@ -100,12 +122,11 @@ export default function Profile() {
   );
 }
 
-function Section({ title, action }: { title: string; action?: string }) {
+function Section({ title }: { title: string }) {
   const { c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginHorizontal: 2 }}>
       <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{title}</Text>
-      {action ? <Text style={{ fontSize: 13.5, fontWeight: '600', color: c.accentText }}>{action}</Text> : null}
     </View>
   );
 }

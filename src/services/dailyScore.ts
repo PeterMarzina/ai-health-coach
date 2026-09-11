@@ -1,6 +1,6 @@
 // src/services/dailyScore.ts — dagscore-algoritme v1
 // Zuivere, testbare functie: input -> score (0-100) + puntenverdeling.
-// Alle gewichten staan hieronder in WEIGHTS zodat de logica later makkelijk
+// Alle gewichten staan hieronder in SCORE_WEIGHTS zodat de logica later makkelijk
 // is bij te stellen zonder de rest van de app te hoeven aanpassen.
 
 export interface DailyScoreInput {
@@ -24,7 +24,8 @@ export interface DailyScoreResult {
   breakdown: DailyScoreBreakdown;
 }
 
-const WEIGHTS = {
+// Geëxporteerd zodat Home de maxima in de puntenverdeling kan tonen.
+export const SCORE_WEIGHTS = {
   workout: 40,
   movement: 30,
   nutrition: 20,
@@ -37,10 +38,10 @@ function ratio(value: number, goal: number): number {
 }
 
 export function calculateDailyScore(input: DailyScoreInput): DailyScoreResult {
-  const workout = input.workoutDone ? WEIGHTS.workout : 0;
-  const movement = Math.round(ratio(input.steps, input.stepGoal) * WEIGHTS.movement);
-  const nutrition = Math.round(ratio(input.waterL, input.waterGoalL) * WEIGHTS.nutrition);
-  const streakBonus = Math.min(Math.max(0, input.streakDays), WEIGHTS.streakBonus);
+  const workout = input.workoutDone ? SCORE_WEIGHTS.workout : 0;
+  const movement = Math.round(ratio(input.steps, input.stepGoal) * SCORE_WEIGHTS.movement);
+  const nutrition = Math.round(ratio(input.waterL, input.waterGoalL) * SCORE_WEIGHTS.nutrition);
+  const streakBonus = Math.min(Math.max(0, input.streakDays), SCORE_WEIGHTS.streakBonus);
 
   const breakdown: DailyScoreBreakdown = { workout, movement, nutrition, streakBonus };
   const score = Math.min(100, workout + movement + nutrition + streakBonus);

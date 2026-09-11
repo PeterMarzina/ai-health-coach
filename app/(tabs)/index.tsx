@@ -2,20 +2,39 @@
 // Dit is het startscherm (route "/"). Het toont de begroeting, je dagscore,
 // de focus van vandaag, een paar statistiek-tegels, de AI-coach en je voortgang.
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 // ── Eigen bouwstenen en data ophalen ──────────────────────────────
 import { Screen } from '@/components/Screen';        // scrollbaar omhulsel met veilige randen
 import { Card, Section, Check, Bar } from '@/components/ui'; // kaartje + sectiekop + vinkje + balk
 import { Icon } from '@/components/Icon';             // iconen (bell, target, chevR, ...)
 import { Ring, Sparkline } from '@/components/charts';// ronde grafiek + mini-lijngrafiek
-import { useTheme, useLang, useSettings, useDaily } from '@/components/store'; // thema, taal, AI-profiel, dagelijkse loop
-import { DATA } from '@/constants/data';             // voorbeeld-data (mock)
+import { useTheme, useLang, useSettings, useDaily, useAuth } from '@/components/store'; // thema, taal, AI-profiel, dagelijkse loop
 import { generateAdvice } from '@/src/services/adviceGenerator';
+import { SCORE_WEIGHTS } from '@/src/services/dailyScore';
+import { getDailyAIAdvice } from '@/src/services/aiAdvice';
+import { fetchHomeStats, HomeStats } from '@/src/services/homeDashboard';
+import { weeklyWeightChange } from '@/src/services/weightTrend';
 import type { FocusTask } from '@/src/services/todayFocus';
+
+function greetingFor(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// 7.4 → "7h 24m", 8 → "8h"
+function formatSleep(hours: number): string {
+  const totalMin = Math.round(hours * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+const fmt = (n: number) => n.toLocaleString('en-US');
 
 // Eén taak uit de "Today's Focus"-lijst. `onToggle` (workout) of `onIncrement`
 // (stappen/water) bepaalt welke actie rechts verschijnt; zonder één van beide
@@ -50,59 +69,126 @@ function FocusTaskCard({
 export default function Home() {
   const { c } = useTheme();        // c = het kleurenpalet (donker of licht)
   const { lang } = useLang();
-  const { profileContext } = useSettings();
+  const { profileContext, fullName, goals, measurements } = useSettings();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
   const {
-    streakDays, level, xpProgress, score, focusTasks, toggleWorkout, addSteps, addWater,
+    progress, streakDays, level, xpProgress, score, focusTasks, toggleWorkout, addSteps, addWater,
   } = useDaily();                  // dagscore, focus-lijst, streak & XP (Sprint 3)
   const router = useRouter();      // hiermee navigeer je naar andere schermen
 
-  // Zodra het AI-profiel bekend is (na onboarding), tonen we het rule-based
-  // advies hier in plaats van de statische placeholder-tekst.
+  const name = fullName || profileContext?.answers.name || null;
+
+  // ── Stat-tegels + gewicht: bij elke focus opnieuw, want maaltijden, slaap en
+  // gewicht worden op andere schermen gelogd.
+  const [stats, setStats] = useState<HomeStats | null>(null);
+  const loadStats = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setStats(await fetchHomeStats(userId));
+    } catch (e) {
+      console.warn('Home stats laden mislukt', e); // tegels tonen dan "—"
+    }
+  }, [userId]);
+  useFocusEffect(useCallback(() => { loadStats(); }, [loadStats]));
+
+  // ── AI-coach: rule-based advies meteen tonen, vervangen door het NVIDIA-advies
+  // zodra dat binnen is. Faalt de call (limiet, geen netwerk), dan blijft rule-based staan.
   const advice = profileContext ? generateAdvice(profileContext, lang) : null;
+  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  useEffect(() => {
+    setAiAdvice(null);
+    if (!userId || !profileContext) return;
+    let cancelled = false;
+    getDailyAIAdvice(userId, profileContext, lang)
+      .then((text) => { if (!cancelled) setAiAdvice(text || null); })
+      .catch((e) => console.warn('AI-advies ophalen mislukt', e));
+    return () => { cancelled = true; };
+  }, [userId, profileContext, lang]);
+
+  // Stappen van vandaag komen uit useDaily (live bij de +-knop), de rest van de week uit Supabase.
+  const stepGoal = profileContext?.derived.stepGoal ?? goals.steps;
+  const last = (arr: number[] | undefined) => (arr && arr.length ? arr[arr.length - 1] : null);
+  const todayCalories = last(stats?.calories);
+  const todayProtein = last(stats?.proteinG);
+  const todaySleep = stats ? stats.sleepHours[stats.sleepHours.length - 1] : null;
+  const statTiles = [
+    { key: 'steps', label: 'Steps', value: fmt(progress.steps), goal: `/${fmt(stepGoal)}`, icon: 'footsteps', hue: 'accent',
+      spark: stats ? [...stats.steps.slice(0, -1), progress.steps] : [] },
+    { key: 'calories', label: 'Calories', value: todayCalories != null ? fmt(todayCalories) : '—', goal: `/${fmt(goals.calories)}`, icon: 'flame', hue: 'calories',
+      spark: stats?.calories ?? [] },
+    { key: 'protein', label: 'Protein', value: todayProtein != null ? String(todayProtein) : '—', goal: `/${goals.protein}g`, icon: 'target', hue: 'protein',
+      spark: stats?.proteinG ?? [] },
+    { key: 'sleep', label: 'Sleep', value: todaySleep != null ? formatSleep(todaySleep) : '—', goal: `/${goals.sleepHours}h`, icon: 'moon', hue: 'sleep',
+      spark: stats ? stats.sleepHours.filter((h): h is number => h != null) : [] },
+  ];
+
+  // Gewicht: laatste meting, anders de waarde uit onboarding/metingen.
+  const weightLogs = stats?.weightLogs ?? [];
+  const latestWeight = weightLogs.length ? weightLogs[weightLogs.length - 1].weightKg : measurements.weight;
+  const weightChange = weeklyWeightChange(weightLogs);
+  const weightSpark = weightLogs.slice(-7).map((l) => l.weightKg);
+
+  // Puntenverdeling van de dagscore. "nutrition" telt in dailyScore.ts (nog) alleen water.
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const breakdownRows = [
+    { label: 'Workout', points: score.breakdown.workout, max: SCORE_WEIGHTS.workout },
+    { label: 'Steps', points: score.breakdown.movement, max: SCORE_WEIGHTS.movement },
+    { label: 'Water', points: score.breakdown.nutrition, max: SCORE_WEIGHTS.nutrition },
+    { label: 'Streak bonus', points: score.breakdown.streakBonus, max: SCORE_WEIGHTS.streakBonus },
+  ];
 
   // Hulpfunctie: pakt een kleur op naam uit het thema, anders de accentkleur
   const hue = (k: string) => (c as any)[k] || c.accent;
 
   return (
     <Screen>
-      {/* ── Koptekst: logo, begroeting en belletje ── */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-          {/* Vierkant "A"-logo */}
-          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontWeight: '800', fontSize: 18, color: c.accentText, fontStyle: 'italic' }}>A</Text>
-          </View>
-          {/* Begroetingstekst */}
-          <View>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>Good morning, Jay 👋</Text>
-            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 1 }}>Let's crush today.</Text>
-          </View>
+      {/* ── Koptekst: logo en begroeting ── */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 18 }}>
+        {/* Vierkant "A"-logo */}
+        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontWeight: '800', fontSize: 18, color: c.accentText, fontStyle: 'italic' }}>A</Text>
         </View>
-        {/* Belletje-knop met rood stipje (notificatie) */}
-        <TouchableOpacity activeOpacity={0.7} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="bell" size={20} color={c.text} />
-          <View style={{ position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: 4, backgroundColor: c.accent, borderWidth: 1.5, borderColor: c.card }} />
-        </TouchableOpacity>
+        {/* Begroetingstekst */}
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{greetingFor(new Date().getHours())}{name ? `, ${name}` : ''} 👋</Text>
+          <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 1 }}>Let's crush today.</Text>
+        </View>
       </View>
 
       {/* ── Dagscore-kaart met ronde grafiek (Ring) ── */}
-      <Card accent pad={18} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -0.4, lineHeight: 25 }}>Your Daily{'\n'}Score</Text>
-          <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 8, lineHeight: 18, maxWidth: 150 }}>Habits, training, nutrition & recovery combined into one.</Text>
-          {/* Knop "See breakdown" (nog zonder actie) */}
-          <TouchableOpacity activeOpacity={0.7} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 100, paddingVertical: 7, paddingHorizontal: 13 }}>
-            <Text style={{ color: c.text, fontSize: 12.5, fontWeight: '600' }}>See breakdown</Text>
-            <Icon name="chevR" size={14} color={c.text} />
-          </TouchableOpacity>
+      <Card accent pad={18} style={{ marginBottom: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -0.4, lineHeight: 25 }}>Your Daily{'\n'}Score</Text>
+            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 8, lineHeight: 18, maxWidth: 150 }}>Workout, steps, water & streak combined into one.</Text>
+            {/* Klapt de puntenverdeling (score.breakdown) onder de kaart open/dicht */}
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setShowBreakdown((v) => !v)} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 100, paddingVertical: 7, paddingHorizontal: 13 }}>
+              <Text style={{ color: c.text, fontSize: 12.5, fontWeight: '600' }}>{showBreakdown ? 'Hide breakdown' : 'See breakdown'}</Text>
+              <Icon name={showBreakdown ? 'chevDown' : 'chevR'} size={14} color={c.text} />
+            </TouchableOpacity>
+          </View>
+          {/* De ronde score-grafiek; het getal staat in het midden */}
+          <Ring size={132} stroke={13} value={score.score} glow>
+            <Text style={{ fontSize: 44, fontWeight: '800', color: c.text, letterSpacing: -1 }}>{score.score}</Text>
+            <Text style={{ fontSize: 11.5, fontWeight: '700', color: c.accentText, marginTop: 2 }}>
+              {score.score >= 80 ? 'Great work' : score.score >= 40 ? 'Keep going' : 'Let\'s start'}
+            </Text>
+          </Ring>
         </View>
-        {/* De ronde score-grafiek; het getal staat in het midden */}
-        <Ring size={132} stroke={13} value={score.score} glow>
-          <Text style={{ fontSize: 44, fontWeight: '800', color: c.text, letterSpacing: -1 }}>{score.score}</Text>
-          <Text style={{ fontSize: 11.5, fontWeight: '700', color: c.accentText, marginTop: 2 }}>
-            {score.score >= 80 ? 'Great work' : score.score >= 40 ? 'Keep going' : 'Let\'s start'}
-          </Text>
-        </Ring>
+        {showBreakdown ? (
+          <View style={{ marginTop: 16, gap: 11 }}>
+            {breakdownRows.map((row) => (
+              <View key={row.label}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600' }}>{row.label}</Text>
+                  <Text style={{ fontSize: 12.5, color: c.text, fontWeight: '700' }}>{row.points} / {row.max}</Text>
+                </View>
+                <Bar value={row.points} max={row.max} color={c.accent} height={6} />
+              </View>
+            ))}
+          </View>
+        ) : null}
       </Card>
 
       {/* ── Streak + XP: de dopamine-feedback van de dagelijkse loop ── */}
@@ -144,10 +230,10 @@ export default function Home() {
         return <FocusTaskCard key={task.id} task={task} />;
       })}
 
-      {/* ── Statistiek-tegels: één kaartje per item uit DATA.stats ── */}
+      {/* ── Statistiek-tegels: één kaartje per item uit statTiles ── */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 11, marginTop: 8, marginBottom: 18 }}>
         {/* .map() = herhaal dit kaartje voor elke statistiek in de data */}
-        {DATA.stats.map((s) => (
+        {statTiles.map((s) => (
           <Card key={s.key} pad={13} style={{ width: '47.8%', borderRadius: 18 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600' }}>{s.label}</Text>
@@ -175,16 +261,15 @@ export default function Home() {
               <Text style={{ fontSize: 12, fontWeight: '700', color: c.accentText }}>AI Coach</Text>
             </View>
             <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>{advice ? advice.title : "Here's your plan for today."}</Text>
-            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 6, lineHeight: 18 }}>{advice ? advice.body : "Lower body focus — intensity & progressive overload. Don't forget your protein goal!"}</Text>
+            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 6, lineHeight: 18 }}>{aiAdvice ?? (advice ? advice.body : "Finish onboarding to get advice based on your profile.")}</Text>
             <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/coach')} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', backgroundColor: c.accent, borderRadius: 100, paddingVertical: 9, paddingHorizontal: 15 }}>
               <Icon name="chat" size={15} color={c.onAccent} />
               <Text style={{ color: c.onAccent, fontSize: 13, fontWeight: '700' }}>Talk to Coach</Text>
             </TouchableOpacity>
           </View>
-          {/* Plek voor een 3D-coach plaatje */}
-          <View style={{ width: 96, alignSelf: 'stretch', borderRadius: 14, backgroundColor: c.cardLo, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
-            <Icon name="user" size={40} color={c.accentText} />
-            <Text style={{ fontSize: 8, color: c.dim, marginTop: 6, fontFamily: 'monospace' }}>3D COACH</Text>
+          {/* Coach-icoon */}
+          <View style={{ width: 96, alignSelf: 'stretch', borderRadius: 14, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
+            <Icon name="sparkle" size={40} color={c.accentText} fill={c.accentText} />
           </View>
         </View>
       </Card>
@@ -197,14 +282,22 @@ export default function Home() {
         </View>
         <View>
           <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>Weight</Text>
-          <Text style={{ fontSize: 19, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>78.4 <Text style={{ fontSize: 12, fontWeight: '600', color: c.sub }}>kg</Text></Text>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>{latestWeight > 0 ? latestWeight.toFixed(1) : '—'} <Text style={{ fontSize: 12, fontWeight: '600', color: c.sub }}>kg</Text></Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Sparkline data={DATA.weight.sparkWeek} color={c.accent} w={96} h={34} />
+          <Sparkline data={weightSpark} color={c.accent} w={96} h={34} />
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: c.accentText }}>−0.6 kg</Text>
-          <Text style={{ fontSize: 11, color: c.dim }}>vs last week</Text>
+          {weightChange != null ? (
+            <>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: weightChange <= 0 ? c.accentText : c.bad }}>
+                {weightChange > 0 ? '+' : weightChange < 0 ? '−' : ''}{Math.abs(weightChange).toFixed(1)} kg
+              </Text>
+              <Text style={{ fontSize: 11, color: c.dim }}>vs last week</Text>
+            </>
+          ) : (
+            <Text style={{ fontSize: 11, color: c.dim }}>Log weekly{'\n'}to see trend</Text>
+          )}
         </View>
       </Card>
     </Screen>

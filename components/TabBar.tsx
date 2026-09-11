@@ -89,10 +89,11 @@ function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const go = (path: string) => { onClose(); setTimeout(() => router.push(path as any), 180); };
 
   const items: { key: string; label: string; sub: string; icon: IconName; color: string; path: string }[] = [
-    { key: 'workout', label: 'Start Workout', sub: 'Lower Body Strength', icon: 'dumbbell', color: c.accent, path: '/plan/workout' },
+    { key: 'workout', label: 'Start Workout', sub: 'Start or resume a session', icon: 'dumbbell', color: c.accent, path: '/plan/workout' },
     { key: 'nutrition', label: 'Log Nutrition', sub: 'Track a meal', icon: 'flame', color: c.calories, path: '/nutrition' },
-    { key: 'weight', label: 'Log Weight', sub: 'Update measurements', icon: 'chart', color: c.water, path: '/measurements' },
-    { key: 'coach', label: 'Ask Coach', sub: 'AI guidance', icon: 'sparkle', color: c.protein, path: '/nutrition' },
+    // Gewicht loggen gebeurt op Progress (weight_logs); Measurements past alleen het profiel aan.
+    { key: 'weight', label: 'Log Weight', sub: "Add today's weight", icon: 'chart', color: c.water, path: '/progress' },
+    { key: 'coach', label: 'Ask Coach', sub: 'AI guidance', icon: 'sparkle', color: c.protein, path: '/coach' },
   ];
 
   if (!mounted) return null;

@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/components/store';
 import { useSettings } from '@/components/store';
-import { Card, Placeholder } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 
 export default function Goals() {

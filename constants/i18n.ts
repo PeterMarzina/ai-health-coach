@@ -83,8 +83,6 @@ export const translations = {
     ob_followup_subtitle: 'Op basis van je antwoorden willen we het volgende weten.',
     ob_followup_none: 'Geen extra vragen voor jou — je antwoorden zijn compleet.',
     ob_summary_title: 'Klaar!',
-    ob_ai_test_btn: 'AI-advies ophalen (test)',
-    ob_ai_test_error: 'Kon geen AI-advies ophalen. Check de Supabase-functie/logs.',
 
     // AI Coach chat
     coach_title: 'AI Coach',
@@ -191,8 +189,6 @@ export const translations = {
     ob_followup_subtitle: "Based on your answers, we'd like to know the following.",
     ob_followup_none: 'No extra questions for you — your answers are complete.',
     ob_summary_title: 'All set!',
-    ob_ai_test_btn: 'Get AI advice (test)',
-    ob_ai_test_error: 'Could not fetch AI advice. Check the Supabase function/logs.',
 
     // AI Coach chat
     coach_title: 'AI Coach',
