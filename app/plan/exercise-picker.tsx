@@ -9,7 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Card, Input, Chip, Button, EmptyState } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useTheme, useAuth } from '@/components/store';
+import { useTheme, useAuth, useLang } from '@/components/store';
+import type { TKey } from '@/constants/i18n';
 import { fetchExercises, createCustomExercise } from '@/src/services/workouts';
 import { getFavoriteExerciseIds, toggleFavoriteExercise, getRecentExerciseIds, markExerciseUsed } from '@/src/services/exerciseFavorites';
 import type { Equipment, Exercise, ExerciseType, MuscleGroup } from '@/src/types/workout';
@@ -18,12 +19,18 @@ const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'arms', 'leg
 const EQUIPMENT: Equipment[] = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'bands'];
 const TYPES: ExerciseType[] = ['push', 'pull', 'legs', 'core'];
 
-function label(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+const MUSCLE_GROUP_LABEL: Record<MuscleGroup, TKey> = {
+  chest: 'mg_chest', back: 'mg_back', shoulders: 'mg_shoulders', arms: 'mg_arms', legs: 'mg_legs', core: 'mg_core',
+};
+const EQUIPMENT_LABEL: Record<Equipment, TKey> = {
+  barbell: 'eq_barbell', dumbbell: 'eq_dumbbell', machine: 'eq_machine', cable: 'eq_cable',
+  bodyweight: 'eq_bodyweight', kettlebell: 'eq_kettlebell', bands: 'eq_bands',
+};
+const TYPE_LABEL: Record<ExerciseType, TKey> = { push: 'type_push', pull: 'type_pull', legs: 'type_legs', core: 'type_core' };
 
 export default function ExercisePicker() {
   const { c } = useTheme();
+  const { t } = useLang();
   const { session } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -57,11 +64,11 @@ export default function ExercisePicker() {
       setFavorites(favs);
       setRecent(rec);
     } catch (e: any) {
-      Alert.alert('Oops', e.message ?? 'Could not load exercises.');
+      Alert.alert(t('oops'), e.message ?? t('ex_load_failed'));
     } finally {
       setLoading(false);
     }
-  }, [search, muscleGroup, equipment]);
+  }, [search, muscleGroup, equipment, t]);
 
   useEffect(() => {
     const id = setTimeout(load, search ? 250 : 0); // lichte debounce op typen
@@ -97,7 +104,7 @@ export default function ExercisePicker() {
 
   const handleCreateCustom = async () => {
     if (!userId || !customName.trim()) {
-      Alert.alert('Oops', 'Enter a name for the exercise.');
+      Alert.alert(t('oops'), t('ex_name_required'));
       return;
     }
     setSavingCustom(true);
@@ -113,7 +120,7 @@ export default function ExercisePicker() {
       await load();
       await handlePick(created);
     } catch (e: any) {
-      Alert.alert('Oops', e.message ?? 'Could not add this exercise.');
+      Alert.alert(t('oops'), e.message ?? t('ex_add_failed'));
     } finally {
       setSavingCustom(false);
     }
@@ -128,7 +135,7 @@ export default function ExercisePicker() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>{exercise.name}</Text>
           <Text style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>
-            {label(exercise.muscleGroup)}{exercise.equipment ? ` · ${label(exercise.equipment)}` : ''}{exercise.isCustom ? ' · Custom' : ''}
+            {t(MUSCLE_GROUP_LABEL[exercise.muscleGroup])}{exercise.equipment ? ` · ${t(EQUIPMENT_LABEL[exercise.equipment])}` : ''}{exercise.isCustom ? ` · ${t('custom')}` : ''}
           </Text>
         </View>
       </TouchableOpacity>
@@ -145,71 +152,71 @@ export default function ExercisePicker() {
           <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="chevL" size={19} color={c.text} />
           </TouchableOpacity>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>Exercises</Text>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{t('exercises')}</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => setShowCustomForm((v) => !v)} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="plus" size={19} color={c.text} />
           </TouchableOpacity>
         </View>
 
-        <Input value={search} onChangeText={setSearch} placeholder="Search exercises" style={{ marginBottom: 12 }} />
+        <Input value={search} onChangeText={setSearch} placeholder={t('search_exercises')} style={{ marginBottom: 12 }} />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, marginBottom: 8 }}>
           {MUSCLE_GROUPS.map((g) => (
-            <Chip key={g} label={label(g)} active={muscleGroup === g} onPress={() => setMuscleGroup(muscleGroup === g ? null : g)} style={{ flex: 0, paddingHorizontal: 14 }} />
+            <Chip key={g} label={t(MUSCLE_GROUP_LABEL[g])} active={muscleGroup === g} onPress={() => setMuscleGroup(muscleGroup === g ? null : g)} style={{ flex: 0, paddingHorizontal: 14 }} />
           ))}
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, marginBottom: 16 }}>
           {EQUIPMENT.map((eq) => (
-            <Chip key={eq} label={label(eq)} active={equipment === eq} onPress={() => setEquipment(equipment === eq ? null : eq)} style={{ flex: 0, paddingHorizontal: 14 }} />
+            <Chip key={eq} label={t(EQUIPMENT_LABEL[eq])} active={equipment === eq} onPress={() => setEquipment(equipment === eq ? null : eq)} style={{ flex: 0, paddingHorizontal: 14 }} />
           ))}
         </ScrollView>
 
         {showCustomForm ? (
           <Card pad={14} style={{ marginBottom: 16, gap: 10 }} accent>
-            <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>Add your own exercise</Text>
-            <Input value={customName} onChangeText={setCustomName} placeholder="Exercise name" />
-            <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>Muscle group</Text>
+            <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text }}>{t('add_own_exercise')}</Text>
+            <Input value={customName} onChangeText={setCustomName} placeholder={t('exercise_name')} />
+            <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>{t('muscle_group')}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               {MUSCLE_GROUPS.map((g) => (
-                <Chip key={g} label={label(g)} active={customMuscleGroup === g} onPress={() => setCustomMuscleGroup(g)} style={{ flex: 0, paddingHorizontal: 14 }} />
+                <Chip key={g} label={t(MUSCLE_GROUP_LABEL[g])} active={customMuscleGroup === g} onPress={() => setCustomMuscleGroup(g)} style={{ flex: 0, paddingHorizontal: 14 }} />
               ))}
             </View>
-            <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>Category</Text>
+            <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>{t('category')}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-              {TYPES.map((t) => (
-                <Chip key={t} label={label(t)} active={customType === t} onPress={() => setCustomType(t)} style={{ flex: 0, paddingHorizontal: 14 }} />
+              {TYPES.map((type) => (
+                <Chip key={type} label={t(TYPE_LABEL[type])} active={customType === type} onPress={() => setCustomType(type)} style={{ flex: 0, paddingHorizontal: 14 }} />
               ))}
             </View>
-            <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>Equipment (optional)</Text>
+            <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>{t('equipment_optional')}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               {EQUIPMENT.map((eq) => (
-                <Chip key={eq} label={label(eq)} active={customEquipment === eq} onPress={() => setCustomEquipment(customEquipment === eq ? null : eq)} style={{ flex: 0, paddingHorizontal: 14 }} />
+                <Chip key={eq} label={t(EQUIPMENT_LABEL[eq])} active={customEquipment === eq} onPress={() => setCustomEquipment(customEquipment === eq ? null : eq)} style={{ flex: 0, paddingHorizontal: 14 }} />
               ))}
             </View>
-            <Button label={savingCustom ? 'Adding…' : 'Add Exercise'} onPress={handleCreateCustom} loading={savingCustom} icon="plus" />
+            <Button label={savingCustom ? t('adding') : t('add_exercise')} onPress={handleCreateCustom} loading={savingCustom} icon="plus" />
           </Card>
         ) : null}
 
         {loading ? (
           <ActivityIndicator color={c.accent} style={{ marginTop: 30 }} />
         ) : exercises.length === 0 ? (
-          <EmptyState icon="dumbbell" title="No exercises found" body="Try a different search or filter." />
+          <EmptyState icon="dumbbell" title={t('no_exercises_found')} body={t('try_other_filter')} />
         ) : (
           <>
             {sorted.favRows.length > 0 ? (
               <>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginBottom: 8, marginHorizontal: 2, letterSpacing: 0.4 }}>FAVORITES</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginBottom: 8, marginHorizontal: 2, letterSpacing: 0.4 }}>{t('favorites_caps')}</Text>
                 {sorted.favRows.map(renderRow)}
               </>
             ) : null}
             {sorted.recentRows.length > 0 ? (
               <>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginTop: 6, marginBottom: 8, marginHorizontal: 2, letterSpacing: 0.4 }}>RECENT</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginTop: 6, marginBottom: 8, marginHorizontal: 2, letterSpacing: 0.4 }}>{t('recent_caps')}</Text>
                 {sorted.recentRows.map(renderRow)}
               </>
             ) : null}
             {sorted.favRows.length > 0 || sorted.recentRows.length > 0 ? (
-              <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginTop: 6, marginBottom: 8, marginHorizontal: 2, letterSpacing: 0.4 }}>ALL</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginTop: 6, marginBottom: 8, marginHorizontal: 2, letterSpacing: 0.4 }}>{t('all_caps')}</Text>
             ) : null}
             {sorted.rest.map(renderRow)}
           </>

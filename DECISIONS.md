@@ -58,6 +58,9 @@ aanwezig (geen jest/jest-expo in `package.json`, geen `test`-script).
 - **UI-teksten in het Engels**, net als de bestaande workout-/plan-/progress-
   schermen. `constants/i18n.ts` wordt niet uitgebreid voor de nieuwe schermen
   (bestaand patroon: alleen auth/onboarding/coach gebruiken `t()`).
+  *Herzien 2026-09-11:* de app mengde daardoor Nederlands en Engels. Alle
+  schermen gebruiken nu `t()`; `en` in `i18n.ts` is `Record<TKey, string>`, dus
+  een ontbrekende vertaling is een TypeScript-fout.
 - **Bestaande workout-tabellen uitgebreid, niet vervangen.** In plaats van de
   richtlijn-namen uit AGENTS.md (`session_exercises`, `sets`) te gebruiken, zijn
   de bestaande `workout_sessions` / `workout_session_exercises` / `workout_sets`

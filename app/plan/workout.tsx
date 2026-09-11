@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Card, Button, Check, EmptyState } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useTheme, useAuth, useDaily } from '@/components/store';
+import { useTheme, useAuth, useDaily, useLang } from '@/components/store';
+import { fill, type TKey } from '@/constants/i18n';
 import {
   resumeActiveSession, startSession, addExerciseToSession, removeExerciseFromSession,
   logSet, removeSet, startRestTimer, clearRestTimer, endSession, abandonSession,
@@ -21,7 +22,7 @@ import type { LocalSessionState, LocalSet } from '@/src/services/localSession';
 import type { Exercise, LoggedSet, Routine, SetType } from '@/src/types/workout';
 
 const SET_TYPE_ORDER: SetType[] = ['normal', 'warmup', 'drop', 'failure'];
-const SET_TYPE_LABEL: Record<SetType, string> = { normal: 'Normal', warmup: 'Warm-up', drop: 'Drop', failure: 'Failure' };
+const SET_TYPE_LABEL: Record<SetType, TKey> = { normal: 'set_normal', warmup: 'set_warmup', drop: 'set_drop', failure: 'set_failure' };
 
 function fmtClock(totalSeconds: number): string {
   const s = Math.max(0, Math.round(totalSeconds));
@@ -56,6 +57,7 @@ function setTypeColor(c: any, type: SetType): string {
 
 export default function WorkoutSessionScreen() {
   const { c } = useTheme();
+  const { t, locale } = useLang();
   const { session: authSession } = useAuth();
   const { progress: dailyProgress, toggleWorkout } = useDaily();
   const router = useRouter();
@@ -96,7 +98,7 @@ export default function WorkoutSessionScreen() {
           setRoutines(await fetchRoutines(userId));
         }
       } catch (e: any) {
-        Alert.alert('Oops', e.message ?? 'Could not load your workout.');
+        Alert.alert(t('oops'), e.message ?? t('wo_load_failed'));
       } finally {
         setLoadingStart(false);
       }
@@ -171,9 +173,9 @@ export default function WorkoutSessionScreen() {
     if (!userId) return;
     setStarting(true);
     try {
-      await enterSession(await startSession(userId, { name: 'Empty Workout', routineId: null, exercises: [] }));
+      await enterSession(await startSession(userId, { name: t('wo_empty_name'), routineId: null, exercises: [] }));
     } catch (e: any) {
-      Alert.alert('Oops', e.message ?? 'Could not start workout.');
+      Alert.alert(t('oops'), e.message ?? t('wo_start_failed'));
     } finally {
       setStarting(false);
     }
@@ -193,11 +195,17 @@ export default function WorkoutSessionScreen() {
       });
       await enterSession(next);
     } catch (e: any) {
-      Alert.alert('Oops', e.message ?? 'Could not start this routine.');
+      Alert.alert(t('oops'), e.message ?? t('wo_routine_start_failed'));
     } finally {
       setStarting(false);
     }
   };
+
+  // Tekst van de "rust voorbij"-notificatie, in de taal van de app.
+  const restText = (exerciseName: string) => ({
+    title: t('rest_over_title'),
+    body: fill(t('rest_over_body'), { exercise: exerciseName }),
+  });
 
   const draftKey = (exerciseId: string, rowIndex: number) => `${exerciseId}:${rowIndex}`;
   const getDraft = (key: string, previous: { weightKg: number; reps: number } | null) =>
@@ -216,12 +224,12 @@ export default function WorkoutSessionScreen() {
     const weightKg = parseFloat(draft.weight.replace(',', '.'));
     const reps = parseInt(draft.reps, 10);
     if (!(weightKg >= 0) || !(reps > 0)) {
-      Alert.alert('Oops', 'Enter a valid weight and reps.');
+      Alert.alert(t('oops'), t('wo_invalid_set'));
       return;
     }
     const afterLog = await logSet(session, exercise.id, { weightKg, reps, setType: draft.setType });
     const plannedExercise = afterLog.exercises.find((e) => e.exerciseId === exercise.id);
-    const withTimer = await startRestTimer(afterLog, exercise.id, plannedExercise?.targetRestSeconds ?? 90, exercise.name);
+    const withTimer = await startRestTimer(afterLog, exercise.id, plannedExercise?.targetRestSeconds ?? 90, restText(exercise.name));
     setSession(withTimer);
   };
 
@@ -246,8 +254,8 @@ export default function WorkoutSessionScreen() {
   const handleAdjustRest = async (deltaSeconds: number) => {
     if (!session?.restTimer) return;
     const remaining = Math.max(0, Math.round((new Date(session.restTimer.endsAt).getTime() - now) / 1000));
-    const exerciseName = exercisesById[session.restTimer.exerciseId]?.name ?? 'exercise';
-    setSession(await startRestTimer(session, session.restTimer.exerciseId, Math.max(0, remaining + deltaSeconds), exerciseName));
+    const exerciseName = exercisesById[session.restTimer.exerciseId]?.name ?? t('exercise').toLowerCase();
+    setSession(await startRestTimer(session, session.restTimer.exerciseId, Math.max(0, remaining + deltaSeconds), restText(exerciseName)));
   };
 
   const handleSkipRest = async () => {
@@ -269,7 +277,7 @@ export default function WorkoutSessionScreen() {
     try {
       const result = await endSession(session, exercisesById);
       if (!result.ok) {
-        Alert.alert('Could not save workout', `${result.error} Your workout is still saved on this device — try again when you're back online.`);
+        Alert.alert(t('wo_save_failed_title'), fill(t('wo_save_failed_msg'), { error: result.error }).trim());
         return;
       }
       if (!dailyProgress.workoutDone) toggleWorkout();
@@ -278,7 +286,7 @@ export default function WorkoutSessionScreen() {
       // moet nu al mee, niet later opnieuw opgevraagd worden.
       const exercisesForRoutine = session.exercises.map((e) => ({
         exerciseId: e.exerciseId,
-        name: exercisesById[e.exerciseId]?.name ?? 'Exercise',
+        name: exercisesById[e.exerciseId]?.name ?? t('exercise'),
         targetSets: e.targetSets,
         targetReps: e.targetReps,
         targetRestSeconds: e.targetRestSeconds,
@@ -314,26 +322,26 @@ export default function WorkoutSessionScreen() {
           <Card accent pad={18} style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Icon name="dumbbell" size={20} color={c.accentText} />
-              <Text style={{ fontSize: 17, fontWeight: '800', color: c.text }}>Resume session?</Text>
+              <Text style={{ fontSize: 17, fontWeight: '800', color: c.text }}>{t('wo_resume_title')}</Text>
             </View>
             <Text style={{ fontSize: 13, color: c.sub, lineHeight: 18 }}>
-              "{pendingResume.name}" is still running ({pendingResume.sets.length} sets logged). Pick up where you left off, or discard it.
+              {fill(t('wo_resume_body'), { name: pendingResume.name, n: pendingResume.sets.length })}
             </Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Button label="Resume" onPress={handleResumeConfirm} style={{ flex: 1 }} icon="play" />
-              <Button label="Discard" onPress={handleResumeDiscard} variant="outline" style={{ flex: 1 }} icon="stop" />
+              <Button label={t('resume')} onPress={handleResumeConfirm} style={{ flex: 1 }} icon="play" />
+              <Button label={t('discard')} onPress={handleResumeDiscard} variant="outline" style={{ flex: 1 }} icon="stop" />
             </View>
           </Card>
         ) : !session ? (
           <>
-            <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 6 }}>Start a Workout</Text>
-            <Text style={{ fontSize: 13, color: c.sub, marginBottom: 20, lineHeight: 18 }}>Start empty, or jump into a routine.</Text>
+            <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 6 }}>{t('wo_start_title')}</Text>
+            <Text style={{ fontSize: 13, color: c.sub, marginBottom: 20, lineHeight: 18 }}>{t('wo_start_sub')}</Text>
 
-            <Button label={starting ? 'Starting…' : 'Empty Workout'} onPress={handleStartEmpty} loading={starting} icon="plus" style={{ marginBottom: 18 }} />
+            <Button label={starting ? t('starting') : t('wo_empty_name')} onPress={handleStartEmpty} loading={starting} icon="plus" style={{ marginBottom: 18 }} />
 
             {routines.length > 0 ? (
               <>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: c.text, marginBottom: 12, marginHorizontal: 2 }}>Routines</Text>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: c.text, marginBottom: 12, marginHorizontal: 2 }}>{t('routines')}</Text>
                 <View style={{ gap: 10 }}>
                   {routines.map((r) => (
                     <Card key={r.id} onPress={() => handleStartFromRoutine(r)} pad={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
@@ -346,7 +354,7 @@ export default function WorkoutSessionScreen() {
                   ))}
                 </View>
                 <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/plan/routines')} style={{ marginTop: 14, alignSelf: 'center' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.accentText }}>Manage routines</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.accentText }}>{t('manage_routines')}</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -355,17 +363,17 @@ export default function WorkoutSessionScreen() {
           <>
             <View style={{ marginBottom: 14 }}>
               <Text style={{ fontSize: 24, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>{session.name}</Text>
-              <Text style={{ fontSize: 13, color: c.sub, marginTop: 3 }}>{session.exercises.length} exercises</Text>
+              <Text style={{ fontSize: 13, color: c.sub, marginTop: 3 }}>{fill(t('n_exercises'), { n: session.exercises.length })}</Text>
             </View>
 
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
               <Card pad={14} style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ fontSize: 11, fontWeight: '600', color: c.sub, marginBottom: 6 }}>TIME</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: c.sub, marginBottom: 6 }}>{t('time_caps')}</Text>
                 <Text style={{ fontSize: 22, fontWeight: '800', color: c.text, fontFamily: 'monospace' }}>{fmtClock(elapsedSeconds)}</Text>
               </Card>
               <Card pad={14} style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ fontSize: 11, fontWeight: '600', color: c.sub, marginBottom: 6 }}>VOLUME</Text>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: c.accentText }}>{Math.round(totalVolumeKg).toLocaleString()} <Text style={{ fontSize: 12, color: c.dim }}>kg</Text></Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: c.sub, marginBottom: 6 }}>{t('volume_caps')}</Text>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: c.accentText }}>{Math.round(totalVolumeKg).toLocaleString(locale)} <Text style={{ fontSize: 12, color: c.dim }}>kg</Text></Text>
               </Card>
             </View>
 
@@ -375,7 +383,7 @@ export default function WorkoutSessionScreen() {
                   <Icon name="flame" size={19} color={c.accentText} fill={c.accentText} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.sub }}>RESTING · {exercisesById[session.restTimer.exerciseId]?.name ?? ''}</Text>
+                  <Text style={{ fontSize: 11.5, fontWeight: '600', color: c.sub }}>{t('resting_caps')} · {exercisesById[session.restTimer.exerciseId]?.name ?? ''}</Text>
                   <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, fontFamily: 'monospace', marginTop: 2 }}>{fmtClock(restRemaining)}</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleAdjustRest(-15)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center' }}>
@@ -400,7 +408,7 @@ export default function WorkoutSessionScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                     <TouchableOpacity activeOpacity={0.7} onPress={() => router.push({ pathname: '/plan/exercise-history', params: { exerciseId: exercise.id, exerciseName: exercise.name } })} style={{ flex: 1 }}>
                       <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{exercise.name}</Text>
-                      <Text style={{ fontSize: 11.5, color: c.sub, marginTop: 1 }}>Target {plannedExercise.targetSets} × {plannedExercise.targetReps} · {plannedExercise.targetRestSeconds}s rest</Text>
+                      <Text style={{ fontSize: 11.5, color: c.sub, marginTop: 1 }}>{fill(t('target_line'), { sets: plannedExercise.targetSets, reps: plannedExercise.targetReps, rest: plannedExercise.targetRestSeconds })}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity activeOpacity={0.7} onPress={() => setConfirmRemoveExerciseId(exercise.id)} style={{ padding: 6 }}>
                       <Icon name="minus" size={16} color={c.dim} />
@@ -409,9 +417,9 @@ export default function WorkoutSessionScreen() {
 
                   {confirmRemoveExerciseId === exercise.id ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.cardHi, borderRadius: 12, padding: 10, marginBottom: 10 }}>
-                      <Text style={{ flex: 1, fontSize: 12.5, color: c.text }}>Remove {exercise.name} from this session?</Text>
-                      <TouchableOpacity onPress={() => handleRemoveExercise(exercise.id)}><Text style={{ color: c.bad, fontWeight: '700', fontSize: 12.5 }}>Remove</Text></TouchableOpacity>
-                      <TouchableOpacity onPress={() => setConfirmRemoveExerciseId(null)}><Text style={{ color: c.sub, fontWeight: '600', fontSize: 12.5 }}>Cancel</Text></TouchableOpacity>
+                      <Text style={{ flex: 1, fontSize: 12.5, color: c.text }}>{fill(t('remove_exercise_q'), { name: exercise.name })}</Text>
+                      <TouchableOpacity onPress={() => handleRemoveExercise(exercise.id)}><Text style={{ color: c.bad, fontWeight: '700', fontSize: 12.5 }}>{t('remove')}</Text></TouchableOpacity>
+                      <TouchableOpacity onPress={() => setConfirmRemoveExerciseId(null)}><Text style={{ color: c.sub, fontWeight: '600', fontSize: 12.5 }}>{t('cancel')}</Text></TouchableOpacity>
                     </View>
                   ) : null}
 
@@ -447,10 +455,10 @@ export default function WorkoutSessionScreen() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingLeft: 26 }}>
                           <Text style={{ fontSize: 11, color: c.dim }}>
-                            {row.previous ? `prev: ${row.previous.weightKg}kg × ${row.previous.reps}` : 'no previous data'}
+                            {row.previous ? fill(t('prev_line'), { kg: row.previous.weightKg, reps: row.previous.reps }) : t('no_prev')}
                           </Text>
                           <TouchableOpacity disabled={!!row.logged} activeOpacity={0.6} onPress={() => handleCycleSetType(exercise.id, row)}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: setTypeColor(c, draft.setType) }}>{SET_TYPE_LABEL[draft.setType]}</Text>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: setTypeColor(c, draft.setType) }}>{t(SET_TYPE_LABEL[draft.setType])}</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -459,7 +467,7 @@ export default function WorkoutSessionScreen() {
 
                   <TouchableOpacity activeOpacity={0.7} onPress={() => handleAddExtraRow(exercise.id, rowCount)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                     <Icon name="plus" size={13} color={c.accentText} />
-                    <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.accentText }}>Add Set</Text>
+                    <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.accentText }}>{t('add_set')}</Text>
                   </TouchableOpacity>
                 </Card>
               );
@@ -471,22 +479,22 @@ export default function WorkoutSessionScreen() {
               style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: c.line, borderStyle: 'dashed', borderRadius: 16, paddingVertical: 14, marginBottom: 16 }}
             >
               <Icon name="plus" size={17} color={c.text} />
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Add Exercise</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('add_exercise')}</Text>
             </TouchableOpacity>
 
             {session.exercises.length === 0 ? (
-              <EmptyState icon="dumbbell" title="No exercises yet" body="Tap 'Add Exercise' above to build this workout as you go." />
+              <EmptyState icon="dumbbell" title={t('no_exercises_title')} body={t('no_exercises_body')} />
             ) : null}
 
             {confirmDiscard ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.card, borderWidth: 1, borderColor: c.bad, borderRadius: 14, padding: 12, marginBottom: 8 }}>
-                <Text style={{ flex: 1, fontSize: 12.5, color: c.text }}>Discard this whole workout? This can't be undone.</Text>
-                <TouchableOpacity onPress={handleDiscardSession}><Text style={{ color: c.bad, fontWeight: '700', fontSize: 12.5 }}>Discard</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => setConfirmDiscard(false)}><Text style={{ color: c.sub, fontWeight: '600', fontSize: 12.5 }}>Cancel</Text></TouchableOpacity>
+                <Text style={{ flex: 1, fontSize: 12.5, color: c.text }}>{t('discard_workout_q')}</Text>
+                <TouchableOpacity onPress={handleDiscardSession}><Text style={{ color: c.bad, fontWeight: '700', fontSize: 12.5 }}>{t('discard')}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setConfirmDiscard(false)}><Text style={{ color: c.sub, fontWeight: '600', fontSize: 12.5 }}>{t('cancel')}</Text></TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity activeOpacity={0.7} onPress={() => setConfirmDiscard(true)} style={{ alignSelf: 'center', marginBottom: 4 }}>
-                <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.dim }}>Discard workout</Text>
+                <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.dim }}>{t('discard_workout')}</Text>
               </TouchableOpacity>
             )}
           </>
@@ -495,7 +503,7 @@ export default function WorkoutSessionScreen() {
 
       {session ? (
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16), backgroundColor: c.bg, borderTopWidth: 1, borderTopColor: c.line }}>
-          <Button label={ending ? 'Saving…' : 'End Workout'} onPress={handleEndSession} loading={ending} icon="check" />
+          <Button label={ending ? t('saving') : t('end_workout')} onPress={handleEndSession} loading={ending} icon="check" />
         </View>
       ) : null}
     </View>

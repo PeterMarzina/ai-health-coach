@@ -11,7 +11,7 @@ import {
 import * as workouts from './workouts';
 import { detectPersonalRecords, PRSetInput } from './personalRecords';
 import { totalVolume } from './workoutVolume';
-import { scheduleRestEndNotification, cancelRestEndNotification } from './restTimer';
+import { scheduleRestEndNotification, cancelRestEndNotification, type RestNotificationText } from './restTimer';
 import type { Exercise, PersonalRecordType, SessionSummary, SetType } from '@/src/types/workout';
 
 // ── Starten / hervatten ───────────────────────────────────────────
@@ -213,10 +213,10 @@ export async function startRestTimer(
   state: LocalSessionState,
   exerciseId: string,
   seconds: number,
-  exerciseName: string
+  notificationText: RestNotificationText
 ): Promise<LocalSessionState> {
   await cancelRestEndNotification(state.restTimer?.notificationId);
-  const notificationId = await scheduleRestEndNotification(seconds, exerciseName);
+  const notificationId = await scheduleRestEndNotification(seconds, notificationText);
   const next: LocalSessionState = {
     ...state,
     restTimer: { exerciseId, endsAt: new Date(Date.now() + seconds * 1000).toISOString(), notificationId },
@@ -299,6 +299,7 @@ export async function endSession(
     // Lokale cache blijft bewust intact bij een fout: niets loggen als
     // "afgerond" totdat het echt naar de server is geschreven, zodat de
     // gebruiker het gewoon opnieuw kan proberen.
-    return { ok: false, error: e?.message ?? 'Could not save this workout.' };
+    // Lege melding als er geen foutdetail is: het scherm toont zelf de vertaalde uitleg.
+    return { ok: false, error: e?.message ?? '' };
   }
 }

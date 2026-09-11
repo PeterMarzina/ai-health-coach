@@ -6,9 +6,15 @@
 import * as Notifications from 'expo-notifications';
 import { ensureNotificationPermission } from './notifications';
 
+// De tekst komt van het scherm, zodat hij in de gekozen taal van de app staat.
+export interface RestNotificationText {
+  title: string;
+  body: string;
+}
+
 export async function scheduleRestEndNotification(
   seconds: number,
-  exerciseName: string
+  text: RestNotificationText
 ): Promise<string | null> {
   if (seconds <= 0) return null;
   const granted = await ensureNotificationPermission();
@@ -16,8 +22,8 @@ export async function scheduleRestEndNotification(
   try {
     return await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Rest is over',
-        body: `Time for your next set of ${exerciseName}.`,
+        title: text.title,
+        body: text.body,
         sound: true,
       },
       trigger: {

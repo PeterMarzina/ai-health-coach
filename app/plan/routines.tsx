@@ -7,12 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Card, EmptyState } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useTheme, useAuth } from '@/components/store';
+import { useTheme, useAuth, useLang } from '@/components/store';
 import { fetchRoutines } from '@/src/services/routines';
 import type { Routine } from '@/src/types/workout';
 
 export default function Routines() {
   const { c } = useTheme();
+  const { t } = useLang();
   const { session } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -27,11 +28,11 @@ export default function Routines() {
     try {
       setRoutines(await fetchRoutines(userId));
     } catch (e: any) {
-      Alert.alert('Oops', e.message ?? 'Could not load routines.');
+      Alert.alert(t('oops'), e.message ?? t('routines_load_failed'));
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, t]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -44,17 +45,17 @@ export default function Routines() {
         <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
           <Icon name="chevL" size={19} color={c.text} />
         </TouchableOpacity>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 18 }}>Routines</Text>
+        <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 18 }}>{t('routines')}</Text>
 
         {loading ? (
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
         ) : routines.length === 0 ? (
-          <EmptyState icon="flag" title="No routines yet" body="Finish a workout and save it as a routine to see it here." />
+          <EmptyState icon="flag" title={t('no_routines_title')} body={t('no_routines_body')} />
         ) : (
           <>
             {own.length > 0 ? (
               <>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginBottom: 10, marginHorizontal: 2, letterSpacing: 0.4 }}>MY ROUTINES</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginBottom: 10, marginHorizontal: 2, letterSpacing: 0.4 }}>{t('my_routines_caps')}</Text>
                 <View style={{ gap: 10, marginBottom: 20 }}>
                   {own.map((r) => (
                     <Card key={r.id} onPress={() => router.push({ pathname: '/plan/routine-detail', params: { routineId: r.id, routineName: r.name, isTemplate: '0' } })} pad={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
@@ -69,7 +70,7 @@ export default function Routines() {
               </>
             ) : null}
 
-            <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginBottom: 10, marginHorizontal: 2, letterSpacing: 0.4 }}>TEMPLATES</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: c.sub, marginBottom: 10, marginHorizontal: 2, letterSpacing: 0.4 }}>{t('templates_caps')}</Text>
             <View style={{ gap: 10 }}>
               {templates.map((r) => (
                 <Card key={r.id} onPress={() => router.push({ pathname: '/plan/routine-detail', params: { routineId: r.id, routineName: r.name, isTemplate: '1' } })} pad={14} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>

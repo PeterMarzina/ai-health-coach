@@ -8,16 +8,18 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Card } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { LineChart } from '@/components/charts';
-import { useTheme, useAuth } from '@/components/store';
+import { useTheme, useAuth, useLang } from '@/components/store';
+import { fill } from '@/constants/i18n';
 import { fetchExerciseHistory } from '@/src/services/workouts';
 import type { LoggedSet } from '@/src/types/workout';
 
-function shortDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function shortDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
 export default function ExerciseHistory() {
   const { c } = useTheme();
+  const { t, locale } = useLang();
   const { session: authSession } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -34,11 +36,11 @@ export default function ExerciseHistory() {
       const data = await fetchExerciseHistory(userId, exerciseId);
       setSets(data);
     } catch (e: any) {
-      Alert.alert('Oops', e.message ?? 'Could not load history.');
+      Alert.alert(t('oops'), e.message ?? t('history_load_failed'));
     } finally {
       setLoading(false);
     }
-  }, [userId, exerciseId]);
+  }, [userId, exerciseId, t]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -69,7 +71,7 @@ export default function ExerciseHistory() {
         </TouchableOpacity>
 
         <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 4 }}>{exerciseName}</Text>
-        <Text style={{ fontSize: 13, color: c.sub, marginBottom: 18 }}>Progressive overload — top set weight per workout.</Text>
+        <Text style={{ fontSize: 13, color: c.sub, marginBottom: 18 }}>{t('overload_sub')}</Text>
 
         {loading ? (
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
@@ -79,7 +81,7 @@ export default function ExerciseHistory() {
               {sessionPoints.length >= 2 ? (
                 <LineChart
                   data={sessionPoints.map((p) => p.maxWeight)}
-                  labels={sessionPoints.map((p) => shortDate(p.date))}
+                  labels={sessionPoints.map((p) => shortDate(p.date, locale))}
                   color={c.accent}
                   w={320}
                   h={158}
@@ -87,22 +89,22 @@ export default function ExerciseHistory() {
                 />
               ) : (
                 <Text style={{ fontSize: 13, color: c.sub, textAlign: 'center', paddingVertical: 20 }}>
-                  Log this exercise in at least 2 workouts to see your progress trend.
+                  {t('history_trend_empty')}
                 </Text>
               )}
             </Card>
 
-            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text, marginBottom: 12, marginHorizontal: 2 }}>History</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text, marginBottom: 12, marginHorizontal: 2 }}>{t('history')}</Text>
             {recentFirst.length === 0 ? (
-              <Text style={{ fontSize: 13, color: c.sub, marginHorizontal: 2 }}>No sets logged for this exercise yet.</Text>
+              <Text style={{ fontSize: 13, color: c.sub, marginHorizontal: 2 }}>{t('no_sets_yet')}</Text>
             ) : null}
             {recentFirst.map((s) => (
               <Card key={s.id} pad={13} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: c.text }}>{shortDate(s.completedAt)}</Text>
-                  <Text style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>Set {s.setNumber}</Text>
+                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: c.text }}>{shortDate(s.completedAt, locale)}</Text>
+                  <Text style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>{fill(t('set_n'), { n: s.setNumber })}</Text>
                 </View>
-                <Text style={{ fontSize: 13.5, color: c.sub }}>{s.reps} reps</Text>
+                <Text style={{ fontSize: 13.5, color: c.sub }}>{fill(t('n_reps'), { n: s.reps })}</Text>
                 <Text style={{ fontSize: 14.5, color: c.accentText, fontWeight: '700', width: 64, textAlign: 'right' }}>{s.weightKg} kg</Text>
               </Card>
             ))}
