@@ -9,7 +9,7 @@ import { DARK, LIGHT, Palette } from '@/constants/theme';
 import { DEFAULT_GOALS, DEFAULT_MEASUREMENTS } from '@/constants/data';
 import { supabase } from '../src/lib/supabase'; // verbinding met de backend (Supabase)
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { translations, Lang, TKey } from '@/constants/i18n';
+import { translations, LOCALES, Lang, TKey } from '@/constants/i18n';
 import type { Session } from '@supabase/supabase-js';
 import type { AIProfile } from '@/src/types/aiProfile';
 import type { DailyProgress } from '@/src/types/daily';
@@ -153,7 +153,8 @@ export function useSettings(): SettingsCtx {
 // ── Taal (Nederlands / Engels) ───────────────────────────────
 // lang = de gekozen taal, setLang() wisselt + onthoudt 'm op het toestel,
 // t('sleutel') geeft de juiste vertaling terug (uit constants/i18n.ts).
-type LangCtx = { lang: Lang; setLang: (l: Lang) => void; t: (k: TKey) => string };
+// locale = datum-/getalnotatie voor toLocaleString/toLocaleDateString ('nl-NL' of 'en-US').
+type LangCtx = { lang: Lang; setLang: (l: Lang) => void; t: (k: TKey) => string; locale: string };
 const LanguageContext = createContext<LangCtx | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -174,7 +175,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // De vertaalfunctie: zoekt de tekst op; valt terug op de sleutel als die ontbreekt.
   const t = (k: TKey) => translations[lang][k] ?? k;
 
-  const value = useMemo<LangCtx>(() => ({ lang, setLang, t }), [lang]);
+  const value = useMemo<LangCtx>(() => ({ lang, setLang, t, locale: LOCALES[lang] }), [lang]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
@@ -260,7 +261,7 @@ const DailyContext = createContext<DailyCtx | null>(null);
 export function DailyProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const { goals, profileContext } = useSettings();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const userId = session?.user?.id ?? null;
 
   // "Vandaag" schuift mee: een timer op de volgende middernacht, plus een check
@@ -405,8 +406,8 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   }), [progress, stepGoal, goals.water, streakDays]);
 
   const focusTasks = useMemo(
-    () => buildTodayFocus(profileContext, progress, { steps: stepGoal, water: goals.water }),
-    [profileContext, progress, stepGoal, goals.water]
+    () => buildTodayFocus(profileContext, progress, { steps: stepGoal, water: goals.water }, lang),
+    [profileContext, progress, stepGoal, goals.water, lang]
   );
 
   const value = useMemo<DailyCtx>(() => ({

@@ -5,6 +5,7 @@
 import type { AIProfile } from '@/src/types/aiProfile';
 import type { DailyProgress } from '@/src/types/daily';
 import type { IconName } from '@/components/Icon';
+import { LOCALES, type Lang } from '@/constants/i18n';
 import { XP_REWARDS } from '@/src/services/xp';
 
 export interface FocusTask {
@@ -21,16 +22,21 @@ export interface FocusGoals {
   water: number; // litres
 }
 
-export function buildTodayFocus(profile: AIProfile | null, progress: DailyProgress, goals: FocusGoals): FocusTask[] {
+export function buildTodayFocus(profile: AIProfile | null, progress: DailyProgress, goals: FocusGoals, lang: Lang = 'nl'): FocusTask[] {
+  const nl = lang === 'nl';
+  const num = (n: number) => n.toLocaleString(LOCALES[lang]);
+  const litres = (n: number) => num(Math.round(n * 100) / 100);
   const tasks: FocusTask[] = [];
 
   tasks.push({
     id: 'workout',
     icon: 'dumbbell',
-    title: 'Complete your workout',
+    title: nl ? 'Rond je workout af' : 'Complete your workout',
     subtitle: profile
-      ? `${profile.derived.recommendedTrainingDaysPerWeek}x/week recommended for you`
-      : 'Train today',
+      ? (nl
+        ? `${profile.derived.recommendedTrainingDaysPerWeek}x/week aanbevolen voor jou`
+        : `${profile.derived.recommendedTrainingDaysPerWeek}x/week recommended for you`)
+      : (nl ? 'Train vandaag' : 'Train today'),
     done: progress.workoutDone,
     xp: XP_REWARDS.workout,
   });
@@ -39,8 +45,8 @@ export function buildTodayFocus(profile: AIProfile | null, progress: DailyProgre
   tasks.push({
     id: 'steps',
     icon: 'footsteps',
-    title: `Hit ${stepGoal.toLocaleString()} steps`,
-    subtitle: `${progress.steps.toLocaleString()} / ${stepGoal.toLocaleString()} steps`,
+    title: nl ? `Haal ${num(stepGoal)} stappen` : `Hit ${num(stepGoal)} steps`,
+    subtitle: `${num(progress.steps)} / ${num(stepGoal)} ${nl ? 'stappen' : 'steps'}`,
     done: progress.steps >= stepGoal,
     xp: XP_REWARDS.steps,
   });
@@ -48,8 +54,8 @@ export function buildTodayFocus(profile: AIProfile | null, progress: DailyProgre
   tasks.push({
     id: 'water',
     icon: 'droplet',
-    title: `Drink ${goals.water}L of water`,
-    subtitle: `${progress.waterL.toFixed(2)} / ${goals.water}L`,
+    title: nl ? `Drink ${litres(goals.water)} L water` : `Drink ${litres(goals.water)} L of water`,
+    subtitle: `${litres(progress.waterL)} / ${litres(goals.water)} L`,
     done: progress.waterL >= goals.water,
     xp: XP_REWARDS.water,
   });
@@ -60,10 +66,10 @@ export function buildTodayFocus(profile: AIProfile | null, progress: DailyProgre
       tasks.push({
         id: 'recovery',
         icon: 'moon',
-        title: 'Take a recovery moment',
+        title: nl ? 'Neem een herstelmoment' : 'Take a recovery moment',
         subtitle: derived.recoveryRisk === 'high'
-          ? 'Sleep & stress point to a higher recovery risk'
-          : 'A bit more rest will help you recover',
+          ? (nl ? 'Slaap en stress wijzen op een hoger herstelrisico' : 'Sleep & stress point to a higher recovery risk')
+          : (nl ? 'Wat extra rust helpt je herstellen' : 'A bit more rest will help you recover'),
         done: false,
         xp: 0,
       });
@@ -71,8 +77,8 @@ export function buildTodayFocus(profile: AIProfile | null, progress: DailyProgre
       tasks.push({
         id: 'habit',
         icon: 'leaf',
-        title: 'Skip alcohol & smoking today',
-        subtitle: 'Cutting back speeds up your progress',
+        title: nl ? 'Sla vandaag alcohol en roken over' : 'Skip alcohol & smoking today',
+        subtitle: nl ? 'Minderen versnelt je vooruitgang' : 'Cutting back speeds up your progress',
         done: false,
         xp: 0,
       });

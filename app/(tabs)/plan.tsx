@@ -8,43 +8,50 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Section, Bar, Check } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useTheme, useAuth, useSettings, useDaily } from '@/components/store';
+import { useTheme, useAuth, useSettings, useDaily, useLang } from '@/components/store';
 import { fetchAIWorkoutPlan } from '@/src/services/coachChat';
 import { fetchMeals, todayKey } from '@/src/services/trackingService';
 import type { AIWorkoutPlan } from '@/src/types/coach';
 import { supabase } from '@/src/lib/supabase';
+import type { TKey } from '@/constants/i18n';
 
-const TABS = ['Overview', 'Workouts', 'Nutrition', 'Habits'];
+type PlanTab = 'overview' | 'workouts' | 'nutrition' | 'habits';
+const TABS: { id: PlanTab; label: TKey }[] = [
+  { id: 'overview', label: 'plan_tab_overview' },
+  { id: 'workouts', label: 'workouts' },
+  { id: 'nutrition', label: 'nutrition' },
+  { id: 'habits', label: 'habits' },
+];
 
 // Bouwt de huidige week (ma–zo) rond een gegeven dag: dagnaam, dag-van-de-maand,
 // datum-key en of het vandaag is. Of er die dag iets gedaan is, komt uit daily_progress.
-function buildWeek(base = new Date()) {
+function buildWeek(locale: string, base = new Date()) {
   const mondayOffset = (base.getDay() + 6) % 7; // 0 = zondag → 6 dagen na maandag
   const monday = new Date(base);
   monday.setDate(base.getDate() - mondayOffset);
-  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const todayStr = todayKey(base);
-  const days = names.map((d, i) => {
+  const days = Array.from({ length: 7 }, (_, i) => {
     const dt = new Date(monday);
     dt.setDate(monday.getDate() + i);
     const key = todayKey(dt);
-    return { d, n: dt.getDate(), key, today: key === todayStr };
+    return { d: dt.toLocaleDateString(locale, { weekday: 'short' }), n: dt.getDate(), key, today: key === todayStr };
   });
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  const fmt = (dt: Date) => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const fmt = (dt: Date) => dt.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
   return { days, label: `${fmt(monday)} – ${fmt(sunday)}` };
 }
 
-function SubTabs({ active, onChange }: { active: string; onChange: (t: string) => void }) {
+function SubTabs({ active, onChange }: { active: PlanTab; onChange: (tab: PlanTab) => void }) {
   const { c } = useTheme();
+  const { t } = useLang();
   return (
     <View style={{ flexDirection: 'row', gap: 22, borderBottomWidth: 1, borderBottomColor: c.line, marginBottom: 18, paddingHorizontal: 2 }}>
-      {TABS.map((t) => {
-        const on = active === t;
+      {TABS.map((tab) => {
+        const on = active === tab.id;
         return (
-          <TouchableOpacity key={t} onPress={() => onChange(t)} activeOpacity={0.7} style={{ paddingBottom: 11 }}>
-            <Text style={{ fontSize: 14.5, fontWeight: on ? '700' : '500', color: on ? c.text : c.sub }}>{t}</Text>
+          <TouchableOpacity key={tab.id} onPress={() => onChange(tab.id)} activeOpacity={0.7} style={{ paddingBottom: 11 }}>
+            <Text style={{ fontSize: 14.5, fontWeight: on ? '700' : '500', color: on ? c.text : c.sub }}>{t(tab.label)}</Text>
             {on ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2.5, borderRadius: 3, backgroundColor: c.accent }} /> : null}
           </TouchableOpacity>
         );
@@ -59,10 +66,11 @@ export default function Plan() {
   const { goals, profileContext } = useSettings();
   const { session } = useAuth();
   const { progress, toggleWorkout } = useDaily();
-  const [tab, setTab] = useState('Overview');
+  const { t, locale } = useLang();
+  const [tab, setTab] = useState<PlanTab>('overview');
 
-  // De huidige week (herberekend per dag) voor de weekstrip.
-  const week = useMemo(() => buildWeek(), []);
+  // De huidige week voor de weekstrip (dagnamen in de gekozen taal).
+  const week = useMemo(() => buildWeek(locale), [locale]);
 
   // Alles wat op andere schermen verandert, opnieuw laden zodra deze tab in beeld komt:
   // maaltijden (Nutrition), het plan (de AI-coach past het aan) en de weekactiviteit.
@@ -103,40 +111,42 @@ export default function Plan() {
   // Vandaag komt live uit useDaily (de +-knoppen werken direct, zonder herladen).
   const todayActive = progress.workoutDone || progress.steps > 0 || progress.waterL > 0;
 
-  const showWorkout = tab === 'Overview' || tab === 'Workouts';
-  const showNutri = tab === 'Overview' || tab === 'Nutrition';
-  const showHabits = tab === 'Overview' || tab === 'Habits';
+  const showWorkout = tab === 'overview' || tab === 'workouts';
+  const showNutri = tab === 'overview' || tab === 'nutrition';
+  const showHabits = tab === 'overview' || tab === 'habits';
 
+  const num = (n: number) => n.toLocaleString(locale);
+  const litres = (n: number) => num(Math.round(n * 100) / 100);
   const nutri = [
-    { label: 'Calories', text: `${consumed.calories.toLocaleString()} / ${goals.calories.toLocaleString()} kcal`, v: consumed.calories, max: goals.calories, color: c.calories, icon: 'flame' as const },
-    { label: 'Protein', text: `${consumed.protein} / ${goals.protein} g`, v: consumed.protein, max: goals.protein, color: c.protein, icon: 'target' as const },
-    { label: 'Water', text: `${progress.waterL.toFixed(2)} / ${goals.water} L`, v: progress.waterL, max: goals.water, color: c.water, icon: 'droplet' as const },
+    { label: t('calories'), text: `${num(consumed.calories)} / ${num(goals.calories)} kcal`, v: consumed.calories, max: goals.calories, color: c.calories, icon: 'flame' as const },
+    { label: t('protein'), text: `${num(consumed.protein)} / ${num(goals.protein)} g`, v: consumed.protein, max: goals.protein, color: c.protein, icon: 'target' as const },
+    { label: t('water'), text: `${litres(progress.waterL)} / ${litres(goals.water)} L`, v: progress.waterL, max: goals.water, color: c.water, icon: 'droplet' as const },
   ];
 
   // Gewoontes afgeleid uit de echte dagvoortgang (Sprint 3), i.p.v. mock-data.
   const stepGoal = profileContext?.derived.stepGoal ?? goals.steps;
   const habits: { key: string; name: string; detail: string; icon: 'dumbbell' | 'footsteps' | 'droplet'; done: boolean; onToggle?: () => void }[] = [
-    { key: 'workout', name: 'Complete workout', detail: progress.workoutDone ? 'Done' : 'Not yet', icon: 'dumbbell', done: progress.workoutDone, onToggle: toggleWorkout },
-    { key: 'steps', name: `${stepGoal.toLocaleString()} Steps`, detail: `${progress.steps.toLocaleString()} / ${stepGoal.toLocaleString()}`, icon: 'footsteps', done: progress.steps >= stepGoal },
-    { key: 'water', name: `Drink ${goals.water}L water`, detail: `${progress.waterL.toFixed(2)} / ${goals.water} L`, icon: 'droplet', done: progress.waterL >= goals.water },
+    { key: 'workout', name: t('habit_complete_workout'), detail: progress.workoutDone ? t('done') : t('not_yet'), icon: 'dumbbell', done: progress.workoutDone, onToggle: toggleWorkout },
+    { key: 'steps', name: `${num(stepGoal)} ${t('steps_unit')}`, detail: `${num(progress.steps)} / ${num(stepGoal)}`, icon: 'footsteps', done: progress.steps >= stepGoal },
+    { key: 'water', name: t('habit_water').replace('{liters}', litres(goals.water)), detail: `${litres(progress.waterL)} / ${litres(goals.water)} L`, icon: 'droplet', done: progress.waterL >= goals.water },
   ];
 
   return (
     <Screen>
-      <Text style={{ fontSize: 30, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 16 }}>Plan</Text>
+      <Text style={{ fontSize: 30, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 16 }}>{t('plan')}</Text>
       <SubTabs active={tab} onChange={setTab} />
 
       {/* week strip */}
       <Card pad={14} style={{ marginBottom: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <View>
-            <Text style={{ fontSize: 11.5, color: c.sub, fontWeight: '600', letterSpacing: 0.4 }}>THIS WEEK</Text>
+            <Text style={{ fontSize: 11.5, color: c.sub, fontWeight: '600', letterSpacing: 0.4 }}>{t('this_week')}</Text>
             <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.text, marginTop: 2 }}>{week.label}</Text>
           </View>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           {week.days.map((d) => (
-            <View key={d.d} style={{ alignItems: 'center', gap: 6, flex: 1 }}>
+            <View key={d.key} style={{ alignItems: 'center', gap: 6, flex: 1 }}>
               <Text style={{ fontSize: 11, color: c.sub, fontWeight: '600' }}>{d.d}</Text>
               <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: d.today ? c.accent : 'transparent' }}>
                 <Text style={{ fontWeight: d.today ? '800' : '600', fontSize: 13.5, color: d.today ? c.onAccent : c.text }}>{d.n}</Text>
@@ -149,12 +159,12 @@ export default function Plan() {
 
       {showWorkout ? (
         <>
-          <Section title="Workout" />
+          <Section title={t('workout')} />
           {aiPlan ? (
             <Card accent pad={15} style={{ marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <Icon name="sparkle" size={15} color={c.accentText} fill={c.accentText} />
-                <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '800', color: c.accentText }}>AI Coach Plan</Text>
+                <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '800', color: c.accentText }}>{t('ai_coach_plan')}</Text>
                 <Text style={{ fontSize: 12, color: c.sub }}>{aiPlan.daysPerWeek}x / week</Text>
               </View>
               <View style={{ gap: 10 }}>
@@ -181,8 +191,8 @@ export default function Plan() {
               <Icon name="target" size={24} color={c.accentText} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>Today's Workout</Text>
-              <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 2 }}>Tap to start or resume a session</Text>
+              <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>{t('todays_workout')}</Text>
+              <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 2 }}>{t('todays_workout_sub')}</Text>
             </View>
             <Icon name="chevR" size={20} color={c.dim} />
           </Card>
@@ -191,7 +201,7 @@ export default function Plan() {
 
       {showNutri ? (
         <>
-          <Section title="Nutrition" action="Details" onAction={() => router.push('/nutrition')} />
+          <Section title={t('nutrition')} action={t('details')} onAction={() => router.push('/nutrition')} />
           <Card onPress={() => router.push('/nutrition')} pad={15} style={{ marginBottom: 18, gap: 15 }}>
             {nutri.map((r) => (
               <View key={r.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -213,7 +223,7 @@ export default function Plan() {
 
       {showHabits ? (
         <>
-          <Section title="Habits" />
+          <Section title={t('habits')} />
           <Card pad={6}>
             {habits.map((h, i) => (
               <View key={h.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: i < habits.length - 1 ? 1 : 0, borderBottomColor: c.line }}>

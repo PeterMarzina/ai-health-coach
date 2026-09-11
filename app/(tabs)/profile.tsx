@@ -23,7 +23,7 @@ function initialsOf(name: string): string {
 
 export default function Profile() {
   const { c, mode, toggle } = useTheme();
-  const { lang, setLang, t } = useLang();
+  const { lang, setLang, t, locale } = useLang();
   const { session } = useAuth();
   const { fullName, profileContext } = useSettings();
   const { streakDays, level, xpTotal } = useDaily();
@@ -44,9 +44,9 @@ export default function Profile() {
   }, [userId]));
 
   const stats = [
-    { label: 'Workouts', value: workoutCount != null ? String(workoutCount) : '—', sub: 'Total' },
-    { label: 'Current Streak', value: String(streakDays), sub: streakDays === 1 ? 'Day' : 'Days' },
-    { label: 'Level', value: String(level), sub: `${xpTotal.toLocaleString('en-US')} XP` },
+    { key: 'workouts', label: t('workouts'), value: workoutCount != null ? String(workoutCount) : '—', sub: t('total') },
+    { key: 'streak', label: t('current_streak'), value: String(streakDays), sub: streakDays === 1 ? t('day') : t('days') },
+    { key: 'level', label: t('level'), value: String(level), sub: `${xpTotal.toLocaleString(locale)} XP` },
   ];
 
   // Uitloggen: Supabase wist de sessie; de auth-poort stuurt je daarna naar login.
@@ -58,7 +58,7 @@ export default function Profile() {
         {/* header: lege ruimte links even breed als de knoppen rechts, zodat de titel gecentreerd blijft */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <View style={{ width: 84 }} />
-          <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Profile</Text>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('profile')}</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {/* Taalknop: wisselt tussen Nederlands en Engels */}
             <TouchableOpacity activeOpacity={0.7} onPress={() => setLang(lang === 'nl' ? 'en' : 'nl')} style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
@@ -83,10 +83,10 @@ export default function Profile() {
         </View>
 
         {/* stats */}
-        <Section title="Stats Overview" />
+        <Section title={t('stats_overview')} />
         <Card pad={0} style={{ flexDirection: 'row', marginBottom: 22, overflow: 'hidden' }}>
           {stats.map((s, i) => (
-            <View key={s.label} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 8, alignItems: 'center', borderRightWidth: i < stats.length - 1 ? 1 : 0, borderRightColor: c.line }}>
+            <View key={s.key} style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 8, alignItems: 'center', borderRightWidth: i < stats.length - 1 ? 1 : 0, borderRightColor: c.line }}>
               <Text style={{ fontSize: 11, color: c.sub, fontWeight: '600' }}>{s.label}</Text>
               <Text style={{ fontSize: 25, fontWeight: '800', color: i === 1 ? c.accentText : c.text, letterSpacing: -0.5, marginVertical: 5 }}>{s.value}</Text>
               <Text style={{ fontSize: 11, color: c.dim }}>{s.sub}</Text>
@@ -97,11 +97,11 @@ export default function Profile() {
         {/* menu */}
         <Card pad={4}>
           {[
-            { label: 'Goals', icon: 'target' as const, route: '/goals' as const },
-            { label: 'Measurements', icon: 'ruler' as const, route: '/measurements' as const },
-            { label: 'Recovery', icon: 'moon' as const, route: '/recovery' as const },
+            { label: t('goals'), icon: 'target' as const, route: '/goals' as const },
+            { label: t('measurements'), icon: 'ruler' as const, route: '/measurements' as const },
+            { label: t('recovery'), icon: 'moon' as const, route: '/recovery' as const },
           ].map((m, i, arr) => (
-            <TouchableOpacity key={m.label} activeOpacity={0.75} onPress={() => router.push(m.route)} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13, paddingHorizontal: 12, borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: c.line }}>
+            <TouchableOpacity key={m.route} activeOpacity={0.75} onPress={() => router.push(m.route)} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13, paddingHorizontal: 12, borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: c.line }}>
               <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={m.icon} size={18} color={c.accentText} />
               </View>

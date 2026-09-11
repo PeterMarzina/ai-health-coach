@@ -20,21 +20,21 @@ import { fetchHomeStats, HomeStats } from '@/src/services/homeDashboard';
 import { weeklyWeightChange } from '@/src/services/weightTrend';
 import type { FocusTask } from '@/src/services/todayFocus';
 
-function greetingFor(hour: number): string {
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+import type { TKey } from '@/constants/i18n';
+
+function greetingKey(hour: number): TKey {
+  if (hour < 12) return 'greet_morning';
+  if (hour < 18) return 'greet_afternoon';
+  return 'greet_evening';
 }
 
-// 7.4 → "7h 24m", 8 → "8h"
-function formatSleep(hours: number): string {
+// 7.4 → "7h 24m" (nl: "7u 24m"), 8 → "8h"
+function formatSleep(hours: number, t: (k: TKey) => string): string {
   const totalMin = Math.round(hours * 60);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  return m ? `${h}h ${m}m` : `${h}h`;
+  return m ? `${h}${t('hour_short')} ${m}${t('min_short')}` : `${h}${t('hour_short')}`;
 }
-
-const fmt = (n: number) => n.toLocaleString('en-US');
 
 // Eén taak uit de "Today's Focus"-lijst. `onToggle` (workout) of `onIncrement`
 // (stappen/water) bepaalt welke actie rechts verschijnt; zonder één van beide
@@ -68,7 +68,8 @@ function FocusTaskCard({
 
 export default function Home() {
   const { c } = useTheme();        // c = het kleurenpalet (donker of licht)
-  const { lang } = useLang();
+  const { lang, t, locale } = useLang();
+  const fmt = (n: number) => n.toLocaleString(locale);
   const { profileContext, fullName, goals, measurements } = useSettings();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
@@ -113,13 +114,13 @@ export default function Home() {
   const todayProtein = last(stats?.proteinG);
   const todaySleep = stats ? stats.sleepHours[stats.sleepHours.length - 1] : null;
   const statTiles = [
-    { key: 'steps', label: 'Steps', value: fmt(progress.steps), goal: `/${fmt(stepGoal)}`, icon: 'footsteps', hue: 'accent',
+    { key: 'steps', label: t('steps'), value: fmt(progress.steps), goal: `/${fmt(stepGoal)}`, icon: 'footsteps', hue: 'accent',
       spark: stats ? [...stats.steps.slice(0, -1), progress.steps] : [] },
-    { key: 'calories', label: 'Calories', value: todayCalories != null ? fmt(todayCalories) : '—', goal: `/${fmt(goals.calories)}`, icon: 'flame', hue: 'calories',
+    { key: 'calories', label: t('calories'), value: todayCalories != null ? fmt(todayCalories) : '—', goal: `/${fmt(goals.calories)}`, icon: 'flame', hue: 'calories',
       spark: stats?.calories ?? [] },
-    { key: 'protein', label: 'Protein', value: todayProtein != null ? String(todayProtein) : '—', goal: `/${goals.protein}g`, icon: 'target', hue: 'protein',
+    { key: 'protein', label: t('protein'), value: todayProtein != null ? String(todayProtein) : '—', goal: `/${goals.protein}g`, icon: 'target', hue: 'protein',
       spark: stats?.proteinG ?? [] },
-    { key: 'sleep', label: 'Sleep', value: todaySleep != null ? formatSleep(todaySleep) : '—', goal: `/${goals.sleepHours}h`, icon: 'moon', hue: 'sleep',
+    { key: 'sleep', label: t('sleep'), value: todaySleep != null ? formatSleep(todaySleep, t) : '—', goal: `/${goals.sleepHours}${t('hour_short')}`, icon: 'moon', hue: 'sleep',
       spark: stats ? stats.sleepHours.filter((h): h is number => h != null) : [] },
   ];
 
@@ -132,10 +133,10 @@ export default function Home() {
   // Puntenverdeling van de dagscore. "nutrition" telt in dailyScore.ts (nog) alleen water.
   const [showBreakdown, setShowBreakdown] = useState(false);
   const breakdownRows = [
-    { label: 'Workout', points: score.breakdown.workout, max: SCORE_WEIGHTS.workout },
-    { label: 'Steps', points: score.breakdown.movement, max: SCORE_WEIGHTS.movement },
-    { label: 'Water', points: score.breakdown.nutrition, max: SCORE_WEIGHTS.nutrition },
-    { label: 'Streak bonus', points: score.breakdown.streakBonus, max: SCORE_WEIGHTS.streakBonus },
+    { label: t('workout'), points: score.breakdown.workout, max: SCORE_WEIGHTS.workout },
+    { label: t('steps'), points: score.breakdown.movement, max: SCORE_WEIGHTS.movement },
+    { label: t('water'), points: score.breakdown.nutrition, max: SCORE_WEIGHTS.nutrition },
+    { label: t('score_streak_bonus'), points: score.breakdown.streakBonus, max: SCORE_WEIGHTS.streakBonus },
   ];
 
   // Hulpfunctie: pakt een kleur op naam uit het thema, anders de accentkleur
@@ -151,8 +152,8 @@ export default function Home() {
         </View>
         {/* Begroetingstekst */}
         <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{greetingFor(new Date().getHours())}{name ? `, ${name}` : ''} 👋</Text>
-          <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 1 }}>Let's crush today.</Text>
+          <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{t(greetingKey(new Date().getHours()))}{name ? `, ${name}` : ''} 👋</Text>
+          <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 1 }}>{t('home_subtitle')}</Text>
         </View>
       </View>
 
@@ -160,11 +161,11 @@ export default function Home() {
       <Card accent pad={18} style={{ marginBottom: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -0.4, lineHeight: 25 }}>Your Daily{'\n'}Score</Text>
-            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 8, lineHeight: 18, maxWidth: 150 }}>Workout, steps, water & streak combined into one.</Text>
+            <Text style={{ fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -0.4, lineHeight: 25 }}>{t('score_title')}</Text>
+            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 8, lineHeight: 18, maxWidth: 150 }}>{t('score_desc')}</Text>
             {/* Klapt de puntenverdeling (score.breakdown) onder de kaart open/dicht */}
             <TouchableOpacity activeOpacity={0.7} onPress={() => setShowBreakdown((v) => !v)} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 100, paddingVertical: 7, paddingHorizontal: 13 }}>
-              <Text style={{ color: c.text, fontSize: 12.5, fontWeight: '600' }}>{showBreakdown ? 'Hide breakdown' : 'See breakdown'}</Text>
+              <Text style={{ color: c.text, fontSize: 12.5, fontWeight: '600' }}>{showBreakdown ? t('score_hide_breakdown') : t('score_show_breakdown')}</Text>
               <Icon name={showBreakdown ? 'chevDown' : 'chevR'} size={14} color={c.text} />
             </TouchableOpacity>
           </View>
@@ -172,7 +173,7 @@ export default function Home() {
           <Ring size={132} stroke={13} value={score.score} glow>
             <Text style={{ fontSize: 44, fontWeight: '800', color: c.text, letterSpacing: -1 }}>{score.score}</Text>
             <Text style={{ fontSize: 11.5, fontWeight: '700', color: c.accentText, marginTop: 2 }}>
-              {score.score >= 80 ? 'Great work' : score.score >= 40 ? 'Keep going' : 'Let\'s start'}
+              {score.score >= 80 ? t('score_great') : score.score >= 40 ? t('score_keep_going') : t('score_start')}
             </Text>
           </Ring>
         </View>
@@ -196,16 +197,16 @@ export default function Home() {
         <Card pad={13} style={{ flex: 1, borderRadius: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="flame" size={16} color={c.calories} fill={c.calories} />
-            <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600' }}>Streak</Text>
+            <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600' }}>{t('streak')}</Text>
           </View>
           <Text style={{ fontSize: 21, fontWeight: '800', color: c.text, marginTop: 6, letterSpacing: -0.5 }}>
-            {streakDays} <Text style={{ fontSize: 12, color: c.dim, fontWeight: '600' }}>{streakDays === 1 ? 'day' : 'days'}</Text>
+            {streakDays} <Text style={{ fontSize: 12, color: c.dim, fontWeight: '600' }}>{streakDays === 1 ? t('day') : t('days')}</Text>
           </Text>
         </Card>
         <Card pad={13} style={{ flex: 1, borderRadius: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="trophy" size={16} color={c.accentText} />
-            <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600' }}>Level {level}</Text>
+            <Text style={{ fontSize: 12.5, color: c.sub, fontWeight: '600' }}>{t('level')} {level}</Text>
           </View>
           <Text style={{ fontSize: 11, color: c.dim, marginTop: 7, marginBottom: 6 }}>{xpProgress.current} / {xpProgress.goal} XP</Text>
           <Bar value={xpProgress.current} max={xpProgress.goal} color={c.accent} height={6} />
@@ -213,7 +214,7 @@ export default function Home() {
       </View>
 
       {/* ── Focus van vandaag: afgeleid van het AI-profiel + voortgang vandaag ── */}
-      <Section title="Today's Focus" action="See all" onAction={() => router.push('/plan')} />
+      <Section title={t('todays_focus')} action={t('see_all')} onAction={() => router.push('/plan')} />
       {focusTasks.map((task) => {
         if (task.id === 'workout') {
           return <FocusTaskCard key={task.id} task={task} onPress={() => router.push('/plan/workout')} onToggle={toggleWorkout} />;
@@ -251,20 +252,20 @@ export default function Home() {
         ))}
       </View>
 
-      {/* ── AI-coach kaart; knop "Talk to Coach" → naar voeding-scherm ── */}
-      <Section title="AI Coach" />
+      {/* ── AI-coach kaart; knop "Praat met je coach" → naar het coach-chatscherm ── */}
+      <Section title={t('coach_title')} />
       <Card pad={16} style={{ marginBottom: 18, overflow: 'hidden' }}>
         <View style={{ flexDirection: 'row' }}>
           <View style={{ flex: 1, paddingRight: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
               <Icon name="sparkle" size={15} color={c.accentText} fill={c.accentText} />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: c.accentText }}>AI Coach</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: c.accentText }}>{t('coach_title')}</Text>
             </View>
-            <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>{advice ? advice.title : "Here's your plan for today."}</Text>
-            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 6, lineHeight: 18 }}>{aiAdvice ?? (advice ? advice.body : "Finish onboarding to get advice based on your profile.")}</Text>
+            <Text style={{ fontSize: 15.5, fontWeight: '700', color: c.text }}>{advice ? advice.title : t('coach_card_fallback_title')}</Text>
+            <Text style={{ fontSize: 12.5, color: c.sub, marginTop: 6, lineHeight: 18 }}>{aiAdvice ?? (advice ? advice.body : t('coach_card_fallback_body'))}</Text>
             <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/coach')} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', backgroundColor: c.accent, borderRadius: 100, paddingVertical: 9, paddingHorizontal: 15 }}>
               <Icon name="chat" size={15} color={c.onAccent} />
-              <Text style={{ color: c.onAccent, fontSize: 13, fontWeight: '700' }}>Talk to Coach</Text>
+              <Text style={{ color: c.onAccent, fontSize: 13, fontWeight: '700' }}>{t('talk_to_coach')}</Text>
             </TouchableOpacity>
           </View>
           {/* Coach-icoon */}
@@ -275,13 +276,13 @@ export default function Home() {
       </Card>
 
       {/* ── Voortgang: gewicht-kaart, klikbaar → naar progress-scherm ── */}
-      <Section title="Progress" action="See all" onAction={() => router.push('/progress')} />
+      <Section title={t('progress')} action={t('see_all')} onAction={() => router.push('/progress')} />
       <Card onPress={() => router.push('/progress')} pad={15} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="chart" size={19} color={c.accentText} />
         </View>
         <View>
-          <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>Weight</Text>
+          <Text style={{ fontSize: 12, color: c.sub, fontWeight: '600' }}>{t('weight')}</Text>
           <Text style={{ fontSize: 19, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>{latestWeight > 0 ? latestWeight.toFixed(1) : '—'} <Text style={{ fontSize: 12, fontWeight: '600', color: c.sub }}>kg</Text></Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center' }}>
@@ -293,10 +294,10 @@ export default function Home() {
               <Text style={{ fontSize: 14, fontWeight: '700', color: weightChange <= 0 ? c.accentText : c.bad }}>
                 {weightChange > 0 ? '+' : weightChange < 0 ? '−' : ''}{Math.abs(weightChange).toFixed(1)} kg
               </Text>
-              <Text style={{ fontSize: 11, color: c.dim }}>vs last week</Text>
+              <Text style={{ fontSize: 11, color: c.dim }}>{t('vs_last_week')}</Text>
             </>
           ) : (
-            <Text style={{ fontSize: 11, color: c.dim }}>Log weekly{'\n'}to see trend</Text>
+            <Text style={{ fontSize: 11, color: c.dim }}>{t('log_weekly_trend')}</Text>
           )}
         </View>
       </Card>

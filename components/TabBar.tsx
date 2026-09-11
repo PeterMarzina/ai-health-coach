@@ -7,19 +7,21 @@ import { View, Text, TouchableOpacity, Modal, Animated, Pressable } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useRouter } from 'expo-router';
-import { useTheme } from './store';
+import { useTheme, useLang } from './store';
 import { Icon, IconName } from './Icon';
 import { withAlpha } from '@/constants/theme';
+import type { TKey } from '@/constants/i18n';
 
-const ITEMS: { route: string; label: string; icon: IconName }[] = [
-  { route: 'index', label: 'Home', icon: 'home' },
-  { route: 'plan', label: 'Plan', icon: 'plan' },
-  { route: 'progress', label: 'Progress', icon: 'chart' },
-  { route: 'profile', label: 'Profile', icon: 'user' },
+const ITEMS: { route: string; label: TKey; icon: IconName }[] = [
+  { route: 'index', label: 'home', icon: 'home' },
+  { route: 'plan', label: 'plan', icon: 'plan' },
+  { route: 'progress', label: 'progress', icon: 'chart' },
+  { route: 'profile', label: 'profile', icon: 'user' },
 ];
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const [sheet, setSheet] = useState(false);
   const activeName = state.routes[state.index]?.name;
@@ -27,13 +29,13 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const left = ITEMS.slice(0, 2);
   const right = ITEMS.slice(2);
 
-  const renderTab = (it: { route: string; label: string; icon: IconName }) => {
+  const renderTab = (it: (typeof ITEMS)[number]) => {
     const active = activeName === it.route;
     return (
       <TouchableOpacity key={it.route} activeOpacity={0.7} onPress={() => navigation.navigate(it.route)}
         style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 }}>
         <Icon name={it.icon} size={23} color={active ? c.accentText : c.dim} strokeWidth={active ? 2.1 : 1.8} />
-        <Text style={{ fontSize: 10.5, fontWeight: active ? '700' : '500', color: active ? c.accentText : c.dim }}>{it.label}</Text>
+        <Text style={{ fontSize: 10.5, fontWeight: active ? '700' : '500', color: active ? c.accentText : c.dim }}>{t(it.label)}</Text>
       </TouchableOpacity>
     );
   };
@@ -65,6 +67,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 
 function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { c } = useTheme();
+  const { t } = useLang();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [mounted, setMounted] = useState(open);
@@ -89,11 +92,11 @@ function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const go = (path: string) => { onClose(); setTimeout(() => router.push(path as any), 180); };
 
   const items: { key: string; label: string; sub: string; icon: IconName; color: string; path: string }[] = [
-    { key: 'workout', label: 'Start Workout', sub: 'Start or resume a session', icon: 'dumbbell', color: c.accent, path: '/plan/workout' },
-    { key: 'nutrition', label: 'Log Nutrition', sub: 'Track a meal', icon: 'flame', color: c.calories, path: '/nutrition' },
+    { key: 'workout', label: t('qa_workout'), sub: t('qa_workout_sub'), icon: 'dumbbell', color: c.accent, path: '/plan/workout' },
+    { key: 'nutrition', label: t('qa_nutrition'), sub: t('qa_nutrition_sub'), icon: 'flame', color: c.calories, path: '/nutrition' },
     // Gewicht loggen gebeurt op Progress (weight_logs); Measurements past alleen het profiel aan.
-    { key: 'weight', label: 'Log Weight', sub: "Add today's weight", icon: 'chart', color: c.water, path: '/progress' },
-    { key: 'coach', label: 'Ask Coach', sub: 'AI guidance', icon: 'sparkle', color: c.protein, path: '/coach' },
+    { key: 'weight', label: t('qa_weight'), sub: t('qa_weight_sub'), icon: 'chart', color: c.water, path: '/progress' },
+    { key: 'coach', label: t('qa_coach'), sub: t('qa_coach_sub'), icon: 'sparkle', color: c.protein, path: '/coach' },
   ];
 
   if (!mounted) return null;
@@ -112,7 +115,7 @@ function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 24,
       }}>
         <View style={{ width: 38, height: 4, borderRadius: 4, backgroundColor: c.faint, alignSelf: 'center', marginBottom: 16 }} />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginHorizontal: 4, marginBottom: 14 }}>Quick Add</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginHorizontal: 4, marginBottom: 14 }}>{t('quick_add')}</Text>
         <View style={{ gap: 9 }}>
           {items.map((it) => (
             <TouchableOpacity key={it.key} activeOpacity={0.75} onPress={() => go(it.path)} style={{
