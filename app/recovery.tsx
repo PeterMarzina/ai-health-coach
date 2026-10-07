@@ -12,7 +12,7 @@ import { Ring } from '@/components/charts';
 import { useTheme, useSettings, useAuth, useLang } from '@/components/store';
 import { fill, type TKey } from '@/constants/i18n';
 import { todayKey, fetchDailyLog, fetchRecentDailyLogs, upsertDailyLog } from '@/src/services/trackingService';
-import { computeRecoveryScore } from '@/src/services/recoveryScore';
+import { computeRecoveryScore, recoveryLabel } from '@/src/services/recoveryScore';
 import type { RecoveryLabel } from '@/src/services/recoveryScore';
 
 const LABEL_TEXT: Record<RecoveryLabel, { title: TKey; body: TKey; color: 'accent' | 'protein' | 'bad' }> = {
@@ -66,7 +66,7 @@ export default function Recovery() {
         if (today.sleepQuality != null) setSleepQuality(today.sleepQuality);
         if (today.trainingLoad != null) setTrainingLoad(today.trainingLoad);
         if (today.restingHeartRate != null) setRestingHr(String(today.restingHeartRate));
-        if (today.recoveryScore != null) setResult({ score: today.recoveryScore, label: today.recoveryScore >= 75 ? 'high' : today.recoveryScore >= 45 ? 'medium' : 'low' });
+        if (today.recoveryScore != null) setResult({ score: today.recoveryScore, label: recoveryLabel(today.recoveryScore) });
 
         const priorHr = recent.filter((r) => r.date !== date && r.restingHeartRate != null).map((r) => r.restingHeartRate as number);
         setHrBaseline(priorHr.length >= 2 ? Math.round(priorHr.reduce((a, b) => a + b, 0) / priorHr.length) : null);
@@ -78,17 +78,29 @@ export default function Recovery() {
   const num = (s: string) => parseFloat(s.replace(',', '.')) || 0;
   const canSave = num(sleepHours) > 0 && sleepQuality !== null && trainingLoad !== null;
 
+  const sleepTargetHours = profileContext?.derived.sleepTargetHours ?? 8;
+
   const handleSave = async () => {
     if (!userId || !canSave) return;
+    // Onmogelijke waarden afvangen vóór ze de score (en de slaapgrafiek) vervuilen.
+    if (num(sleepHours) > 24) {
+      Alert.alert(t('oops'), t('rec_invalid_sleep'));
+      return;
+    }
+    const rhr = restingHr.trim() ? Math.round(num(restingHr)) : null;
+    if (rhr != null && (rhr < 25 || rhr > 220)) {
+      Alert.alert(t('oops'), t('rec_invalid_hr'));
+      return;
+    }
     setSaving(true);
     try {
-      const rhr = restingHr.trim() ? Math.round(num(restingHr)) : null;
       const computed = computeRecoveryScore({
         sleepHours: num(sleepHours),
         sleepQuality: sleepQuality!,
         trainingLoad: trainingLoad!,
         restingHeartRate: rhr,
         restingHeartRateBaseline: hrBaseline,
+        sleepTargetHours, // persoonlijk doel i.p.v. vast 8 uur (zelfde als het label erboven)
       });
       await upsertDailyLog(userId, date, {
         sleepHours: num(sleepHours),
@@ -105,7 +117,6 @@ export default function Recovery() {
     }
   };
 
-  const sleepTargetHours = profileContext?.derived.sleepTargetHours ?? 8;
   const labelInfo = result ? LABEL_TEXT[result.label] : null;
   const labelColor = labelInfo ? (labelInfo.color === 'accent' ? c.accent : labelInfo.color === 'bad' ? c.bad : c.protein) : c.accent;
 

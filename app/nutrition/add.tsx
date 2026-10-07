@@ -65,17 +65,20 @@ export default function AddScreen() {
     if (tab !== 'all') return;
     const q = query.trim();
     if (!q) return; // lege zoekbalk: de lijst toont dan niets (zie `source`)
+    // `cancelled`: een trager, ouder zoekresultaat mag een nieuwer niet overschrijven.
+    let cancelled = false;
     const handle = setTimeout(async () => {
       setLoading(true);
       try {
-        setAll(await searchProducts(q));
+        const results = await searchProducts(q);
+        if (!cancelled) setAll(results);
       } catch (e: any) {
-        Alert.alert(t('err_title'), e.message);
+        if (!cancelled) Alert.alert(t('err_title'), e.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 250); // lichte debounce
-    return () => clearTimeout(handle);
+    return () => { cancelled = true; clearTimeout(handle); };
   }, [query, tab, t]);
 
   const source = tab === 'all' ? (query.trim() ? all : []) : tab === 'recent' ? recent : tab === 'favorites' ? favorites : own;

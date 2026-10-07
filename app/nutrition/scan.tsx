@@ -53,7 +53,9 @@ export default function ScanScreen() {
     try {
       const { product } = await lookupProductByBarcode(result.data);
       if (product) {
-        router.replace({ pathname: '/nutrition/product/[id]', params: { id: product.id, product: JSON.stringify(product), date: params.date, mealType: params.mealType } });
+        // id kan null zijn als het cachen van een Open Food Facts-product mislukte;
+        // de route heeft wel een waarde nodig (het detailscherm leest de `product`-param).
+        router.replace({ pathname: '/nutrition/product/[id]', params: { id: product.id ?? 'lookup', product: JSON.stringify(product), date: params.date, mealType: params.mealType } });
       } else {
         goManual(result.data);
       }

@@ -4,7 +4,7 @@
 // trainingsvolume-grafiek (workout_sets). Lichaamssamenstelling gebruikt de
 // laatst opgeslagen metingen (profiel), niet langer mock-data.
 import React, { useCallback, useState } from 'react';
-import { View, Text, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, ActivityIndicator, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Section, Chip, EmptyState } from '@/components/ui';
@@ -39,6 +39,10 @@ export default function Progress() {
   const { c } = useTheme();
   const { measurements } = useSettings();
   const { t, locale } = useLang();
+  // Grafiekbreedte volgt het scherm (16px rand + 16px kaartpadding per kant);
+  // een vaste 320 liep op smalle telefoons buiten de kaart.
+  const { width } = useWindowDimensions();
+  const chartW = Math.min(width - 64, 600);
   const { session } = useAuth();
   const router = useRouter();
   const userId = session?.user?.id;
@@ -150,7 +154,7 @@ export default function Progress() {
                 data={weightLogs.map((w) => w.weightKg)}
                 labels={pickLabels(weightLogs.map((w) => w.date), locale)}
                 color={c.accent}
-                w={320}
+                w={chartW}
                 h={158}
                 last
               />
@@ -171,12 +175,18 @@ export default function Progress() {
                 placeholderTextColor={c.dim}
                 style={{ flex: 1, backgroundColor: c.cardHi, borderWidth: 1, borderColor: c.line, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11, fontSize: 14, color: c.text }}
               />
-              <View
-                onTouchEnd={logging ? undefined : handleLogWeight}
+              {/* Echte knop i.p.v. onTouchEnd op een View: die ging ook af aan het eind
+                  van een scrollbeweging en was niet toegankelijk voor screenreaders. */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleLogWeight}
+                disabled={logging}
+                accessibilityRole="button"
+                accessibilityLabel={t('log_weight_ph')}
                 style={{ width: 46, height: 46, borderRadius: 12, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: logging ? 0.6 : 1 }}
               >
                 {logging ? <ActivityIndicator color={c.onAccent} size="small" /> : <Icon name="plus" size={18} color={c.onAccent} />}
-              </View>
+              </TouchableOpacity>
             </View>
           </Card>
 
@@ -188,7 +198,7 @@ export default function Progress() {
                 data={sleepSeries.map((s) => s.hours)}
                 labels={pickLabels(sleepSeries.map((s) => s.date), locale)}
                 color={c.sleep}
-                w={320}
+                w={chartW}
                 h={140}
               />
             ) : (

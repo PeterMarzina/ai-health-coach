@@ -119,6 +119,8 @@ export default function WorkoutSessionScreen() {
     if (!params.pickedExerciseId || !session) return;
     const exerciseId = params.pickedExerciseId;
     router.setParams({ pickedExerciseId: undefined, pickedAt: undefined });
+    // Al in deze sessie? Niet nog een keer toevoegen (gaf dubbele kaarten met dezelfde sets).
+    if (session.exercises.some((e) => e.exerciseId === exerciseId)) return;
     (async () => {
       const next = await addExerciseToSession(session, exerciseId);
       setSession(next);
@@ -177,22 +179,14 @@ export default function WorkoutSessionScreen() {
   };
 
   // ── Laden: kijk of er een sessie te hervatten valt, anders toon routines ──
-  // Komt hier binnen vanaf de routines-lijst (A3) met startRoutineId/-Name?
-  // Dan die routine direct starten i.p.v. nogmaals de lijst te tonen.
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoadingStart(true);
       try {
         const resumed = await resumeActiveSession(userId);
-        if (resumed) {
-          setPendingResume(resumed);
-        } else if (params.startRoutineId && params.startRoutineName) {
-          router.setParams({ startRoutineId: undefined, startRoutineName: undefined });
-          await handleStartFromRoutine({ id: params.startRoutineId, name: params.startRoutineName, isTemplate: false });
-        } else {
-          setRoutines(await fetchRoutines(userId));
-        }
+        if (resumed) setPendingResume(resumed);
+        else setRoutines(await fetchRoutines(userId));
       } catch (e: any) {
         Alert.alert(t('oops'), e.message ?? t('wo_load_failed'));
       } finally {
@@ -201,6 +195,25 @@ export default function WorkoutSessionScreen() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Binnengekomen vanaf routine-detail (A3) met startRoutineId/-Name? Dan die routine
+  // direct starten. Een eigen effect (niet alleen bij het eerste laden): routine-detail
+  // gebruikt router.navigate, dat terugspringt naar een al geopend workout-scherm —
+  // dan komen alleen de params opnieuw binnen en draaide er eerder niets.
+  useEffect(() => {
+    if (!userId || loadingStart || !params.startRoutineId || !params.startRoutineName) return;
+    const routine: Routine = { id: params.startRoutineId, name: params.startRoutineName, isTemplate: false };
+    router.setParams({ startRoutineId: undefined, startRoutineName: undefined });
+    // Er loopt al een sessie (of er wacht er een op hervatten): die gaat voor.
+    if (session || pendingResume) {
+      Alert.alert(t('oops'), t('wo_already_running'));
+      return;
+    }
+    // Bewust vanuit een effect: de "gebeurtenis" is een navigatie-param, niet een tik.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    handleStartFromRoutine(routine);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.startRoutineId, loadingStart, userId]);
 
   // Tekst van de "rust voorbij"-notificatie, in de taal van de app.
   const restText = (exerciseName: string) => ({
@@ -400,8 +413,10 @@ export default function WorkoutSessionScreen() {
             ) : null}
 
             {session.exercises.map((plannedExercise) => {
-              const exercise = exercisesById[plannedExercise.exerciseId];
-              if (!exercise) return null;
+              // Oefeninggegevens nog niet geladen (bv. offline)? Toch tonen met een
+              // placeholder-naam, anders verdwijnen alle oefeningen uit de sessie.
+              const exercise = exercisesById[plannedExercise.exerciseId]
+                ?? ({ id: plannedExercise.exerciseId, name: t('wo_exercise_placeholder') } as Exercise);
               const rowCount = Math.max(plannedExercise.targetSets, session.sets.filter((s) => s.exerciseId === exercise.id).length, manualRowCount[exercise.id] ?? 0);
               const rows = buildRows(session.sets, exercise.id, plannedExercise.targetSets, manualRowCount[exercise.id] ?? 0, previousByExercise[exercise.id] ?? []);
               return (

@@ -40,5 +40,9 @@ export async function ensureNotificationPermission(): Promise<boolean> {
       return requested.granted;
     })().catch(() => false);
   }
-  return permissionPromise;
+  const granted = await permissionPromise;
+  // Alleen een "ja" onthouden: na een weigering kan de gebruiker het later via
+  // de systeeminstellingen toch toestaan, dat moeten we de volgende keer zien.
+  if (!granted) permissionPromise = null;
+  return granted;
 }

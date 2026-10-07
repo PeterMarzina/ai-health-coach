@@ -4,6 +4,7 @@
 // prestatie") uitlezen. De crash-safe orchestratie (lokale cache, sync-retries)
 // leeft in workoutSession.ts — dit bestand praat alleen met Supabase.
 import { supabase } from '../lib/supabase';
+import { volumeByDate } from './workoutVolume';
 import type { Exercise, Equipment, LoggedSet, MuscleGroup, PersonalRecord, PersonalRecordType, PlannedExercise, SetType, WorkoutSession } from '@/src/types/workout';
 
 function mapExercise(row: any): Exercise {
@@ -323,15 +324,12 @@ export async function fetchWorkoutVolumeHistory(userId: string, days: number): P
     .order('completed_at');
   if (error) throw error;
 
-  const byDate = new Map<string, number>();
-  for (const row of data ?? []) {
-    if (row.set_type === 'warmup') continue;
-    const day = (row.completed_at as string).slice(0, 10);
-    byDate.set(day, (byDate.get(day) ?? 0) + row.reps * Number(row.weight_kg));
-  }
-  return Array.from(byDate.entries())
-    .map(([date, volumeKg]) => ({ date, volumeKg }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  return volumeByDate((data ?? []).map((row) => ({
+    weightKg: Number(row.weight_kg),
+    reps: row.reps,
+    setType: row.set_type,
+    completedAt: row.completed_at as string,
+  })));
 }
 
 // ── Personal records (Deel A4) ────────────────────────────────────

@@ -17,7 +17,7 @@ import { Icon } from '@/components/Icon';
 import { useTheme, useAuth, useLang } from '@/components/store';
 import { fill } from '@/constants/i18n';
 import { MEAL_TYPES, type MealType, type Product } from '@/src/types/tracking';
-import { addMeal, createUserProduct } from '@/src/services/trackingService';
+import { addMeal, createUserProduct, todayKey } from '@/src/services/trackingService';
 
 function num(s: string): number {
   const n = parseFloat(s.replace(',', '.'));
@@ -100,7 +100,7 @@ export default function ProductDetailScreen() {
         });
         productId = created.id;
       }
-      await addMeal(userId, params.date, {
+      await addMeal(userId, params.date || todayKey(), {
         name: name.trim(),
         calories: preview.calories ?? 0,
         proteinG: preview.protein ?? 0,

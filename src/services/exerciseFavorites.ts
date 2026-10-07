@@ -1,44 +1,50 @@
 // src/services/exerciseFavorites.ts — favorieten + recent gebruikt (Deel A2)
 // Puur lokale UX-voorkeur (geen cross-device sync nodig), dus AsyncStorage
 // i.p.v. een eigen tabel/migratie — zelfde soort keuze als de taalvoorkeur in
-// components/store.tsx.
+// components/store.tsx. Per gebruiker opgeslagen, zodat twee accounts op één
+// toestel elkaars lijstjes niet zien.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const FAVORITES_KEY = 'exercise_favorites';
 const RECENT_KEY = 'exercise_recent';
 const RECENT_MAX = 10;
 
-export async function getFavoriteExerciseIds(): Promise<string[]> {
+const keyFor = (base: string, userId: string) => `${base}:${userId}`;
+
+// Leest de lijst van deze gebruiker; valt eenmalig terug op de oude, gedeelde
+// sleutel (van vóór de per-gebruiker-opslag) zodat bestaande favorieten blijven.
+async function readList(base: string, userId: string): Promise<string[]> {
   try {
-    const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+    const raw = (await AsyncStorage.getItem(keyFor(base, userId))) ?? (await AsyncStorage.getItem(base));
     return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
     return [];
   }
 }
 
-export async function toggleFavoriteExercise(exerciseId: string): Promise<string[]> {
-  const current = await getFavoriteExerciseIds();
-  const next = current.includes(exerciseId) ? current.filter((id) => id !== exerciseId) : [...current, exerciseId];
+async function writeList(base: string, userId: string, ids: string[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+    await AsyncStorage.setItem(keyFor(base, userId), JSON.stringify(ids));
   } catch {}
+}
+
+export function getFavoriteExerciseIds(userId: string): Promise<string[]> {
+  return readList(FAVORITES_KEY, userId);
+}
+
+export async function toggleFavoriteExercise(userId: string, exerciseId: string): Promise<string[]> {
+  const current = await getFavoriteExerciseIds(userId);
+  const next = current.includes(exerciseId) ? current.filter((id) => id !== exerciseId) : [...current, exerciseId];
+  await writeList(FAVORITES_KEY, userId, next);
   return next;
 }
 
-export async function getRecentExerciseIds(): Promise<string[]> {
-  try {
-    const raw = await AsyncStorage.getItem(RECENT_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
+export function getRecentExerciseIds(userId: string): Promise<string[]> {
+  return readList(RECENT_KEY, userId);
 }
 
-export async function markExerciseUsed(exerciseId: string): Promise<void> {
-  const current = await getRecentExerciseIds();
+export async function markExerciseUsed(userId: string, exerciseId: string): Promise<void> {
+  const current = await getRecentExerciseIds(userId);
   const next = [exerciseId, ...current.filter((id) => id !== exerciseId)].slice(0, RECENT_MAX);
-  try {
-    await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
-  } catch {}
+  await writeList(RECENT_KEY, userId, next);
 }

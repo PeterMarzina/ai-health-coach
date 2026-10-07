@@ -3,7 +3,7 @@
 // eigen oefeningen toevoegen. Met ?forSession=1 (geopend vanuit een actieve
 // sessie) stuurt een tik de gekozen oefening terug naar het sessie-scherm;
 // zonder die param opent een tik de progressie-geschiedenis (blader-modus).
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -57,23 +57,28 @@ export default function ExercisePicker() {
   const [customEquipment, setCustomEquipment] = useState<Equipment | null>(null);
   const [savingCustom, setSavingCustom] = useState(false);
 
+  // Volgnummer per request: een trager, ouder zoekresultaat mag een nieuwer niet overschrijven.
+  const requestId = useRef(0);
   const load = useCallback(async () => {
+    if (!userId) return;
+    const id = ++requestId.current;
     setLoading(true);
     try {
       const [ex, favs, rec] = await Promise.all([
         fetchExercises({ search: search.trim() || undefined, muscleGroup: muscleGroup ?? undefined, equipment: equipment ?? undefined }),
-        getFavoriteExerciseIds(),
-        getRecentExerciseIds(),
+        getFavoriteExerciseIds(userId),
+        getRecentExerciseIds(userId),
       ]);
+      if (id !== requestId.current) return;
       setExercises(ex);
       setFavorites(favs);
       setRecent(rec);
     } catch (e: any) {
-      Alert.alert(t('oops'), e.message ?? t('ex_load_failed'));
+      if (id === requestId.current) Alert.alert(t('oops'), e.message ?? t('ex_load_failed'));
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [search, muscleGroup, equipment, t]);
+  }, [search, muscleGroup, equipment, t, userId]);
 
   useEffect(() => {
     const id = setTimeout(load, search ? 250 : 0); // lichte debounce op typen
@@ -90,12 +95,13 @@ export default function ExercisePicker() {
   }, [exercises, favorites, recent]);
 
   const handleToggleFavorite = async (exerciseId: string) => {
-    const next = await toggleFavoriteExercise(exerciseId);
+    if (!userId) return;
+    const next = await toggleFavoriteExercise(userId, exerciseId);
     setFavorites(next);
   };
 
   const handlePick = async (exercise: Exercise) => {
-    await markExerciseUsed(exercise.id);
+    if (userId) await markExerciseUsed(userId, exercise.id);
     if (forSession === '1') {
       // Terug naar het (al gemonte) sessie-scherm — expo-router's `navigate`
       // pop't terug naar die instantie i.p.v. een nieuwe te maken, zodat de

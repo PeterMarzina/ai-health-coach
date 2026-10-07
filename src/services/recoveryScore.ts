@@ -13,6 +13,7 @@ export interface RecoveryInputs {
   trainingLoad: number;          // 1 (licht) - 5 (zeer zwaar)
   restingHeartRate?: number | null;       // van vandaag, optioneel
   restingHeartRateBaseline?: number | null; // gemiddelde van de laatste dagen, optioneel
+  sleepTargetHours?: number;     // persoonlijk slaapdoel uit het AI-profiel; standaard 8
 }
 
 export interface RecoveryResult {
@@ -20,10 +21,15 @@ export interface RecoveryResult {
   label: RecoveryLabel;
 }
 
-const SLEEP_TARGET_HOURS = 8;
+const DEFAULT_SLEEP_TARGET_HOURS = 8;
+
+export function recoveryLabel(score: number): RecoveryLabel {
+  return score >= 75 ? 'high' : score >= 45 ? 'medium' : 'low';
+}
 
 export function computeRecoveryScore(inputs: RecoveryInputs): RecoveryResult {
-  const hoursScore = Math.min(inputs.sleepHours / SLEEP_TARGET_HOURS, 1) * 25;
+  const target = inputs.sleepTargetHours && inputs.sleepTargetHours > 0 ? inputs.sleepTargetHours : DEFAULT_SLEEP_TARGET_HOURS;
+  const hoursScore = Math.min(inputs.sleepHours / target, 1) * 25;
   const qualityScore = (inputs.sleepQuality / 5) * 25;
   const sleepScore = hoursScore + qualityScore; // 0-50
 
@@ -41,6 +47,5 @@ export function computeRecoveryScore(inputs: RecoveryInputs): RecoveryResult {
   const maxPossible = hasHr ? 100 : 80;
   const score = Math.round((rawTotal / maxPossible) * 100);
 
-  const label: RecoveryLabel = score >= 75 ? 'high' : score >= 45 ? 'medium' : 'low';
-  return { score, label };
+  return { score, label: recoveryLabel(score) };
 }

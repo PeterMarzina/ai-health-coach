@@ -410,6 +410,14 @@ const nl = {
   log_out: 'Uitloggen',
   save_failed_title: 'Opslaan mislukt',
   save_failed_msg: 'Je wijziging is niet opgeslagen. Controleer je internetverbinding en probeer het opnieuw.',
+
+  // Herstel — validatie
+  rec_invalid_sleep: 'Een nacht heeft maximaal 24 uur.',
+  rec_invalid_hr: 'Vul een rustpols tussen 25 en 220 in.',
+
+  // Training — extra
+  wo_already_running: 'Er loopt al een training. Rond die eerst af of gooi hem weg.',
+  wo_exercise_placeholder: 'Oefening',
 } as const;
 
 // Alle beschikbare sleutels (zodat t() typeveilig is).
@@ -812,6 +820,14 @@ const en: Record<TKey, string> = {
   log_out: 'Log out',
   save_failed_title: 'Saving failed',
   save_failed_msg: 'Your change was not saved. Check your internet connection and try again.',
+
+  // Herstel — validatie
+  rec_invalid_sleep: 'A night has at most 24 hours.',
+  rec_invalid_hr: 'Enter a resting heart rate between 25 and 220.',
+
+  // Training — extra
+  wo_already_running: 'A workout is already running. Finish or discard it first.',
+  wo_exercise_placeholder: 'Exercise',
 };
 
 export const translations: Record<Lang, Record<TKey, string>> = { nl, en };

@@ -2,7 +2,7 @@
 // Grafiek van het zwaarste gewicht per workout (top set) + een tabel met alle
 // individueel gelogde sets, nieuwste eerst.
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Card } from '@/components/ui';
@@ -20,6 +20,10 @@ function shortDate(iso: string, locale: string) {
 export default function ExerciseHistory() {
   const { c } = useTheme();
   const { t, locale } = useLang();
+  // Grafiekbreedte volgt het scherm (16px rand + 16px kaartpadding per kant);
+  // een vaste 320 liep op smalle telefoons buiten de kaart.
+  const { width } = useWindowDimensions();
+  const chartW = Math.min(width - 64, 600);
   const { session: authSession } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -83,7 +87,7 @@ export default function ExerciseHistory() {
                   data={sessionPoints.map((p) => p.maxWeight)}
                   labels={sessionPoints.map((p) => shortDate(p.date, locale))}
                   color={c.accent}
-                  w={320}
+                  w={chartW}
                   h={158}
                   last
                 />

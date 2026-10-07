@@ -2,6 +2,8 @@
 // Warming-up-sets tellen bewust nooit mee (zie AGENTS.md Deel A1): "Warming-up
 // telt niet mee in PR's of volume".
 
+import { toDateKey } from './streak';
+
 export type VolumeSetInput = { weightKg: number; reps: number; setType: string };
 
 export function isCountedTowardVolume(set: VolumeSetInput): boolean {
@@ -16,14 +18,15 @@ export function totalVolume(sets: VolumeSetInput[]): number {
   return sets.reduce((sum, s) => sum + setVolume(s), 0);
 }
 
-// Volume per dag (YYYY-MM-DD), oplopend gesorteerd — voedt trendgrafieken.
+// Volume per lokale kalenderdag (YYYY-MM-DD), oplopend gesorteerd — voedt trendgrafieken.
+// completedAt is een ISO-timestamp (UTC); de dag wordt in de lokale tijdzone bepaald.
 export function volumeByDate<T extends VolumeSetInput & { completedAt: string }>(
   sets: T[]
 ): { date: string; volumeKg: number }[] {
   const byDate = new Map<string, number>();
   for (const s of sets) {
     if (!isCountedTowardVolume(s)) continue;
-    const day = s.completedAt.slice(0, 10);
+    const day = toDateKey(new Date(s.completedAt));
     byDate.set(day, (byDate.get(day) ?? 0) + s.weightKg * s.reps);
   }
   return Array.from(byDate.entries())

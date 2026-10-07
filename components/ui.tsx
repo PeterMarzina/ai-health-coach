@@ -155,7 +155,7 @@ export function Bar({
 }: { value: number; max?: number; color?: string; height?: number; delay?: number }) {
   const { c } = useTheme();
   const col = color || c.accent;
-  const pct = Math.max(0, Math.min(1, value / max));
+  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0; // max 0 gaf NaN
   const anim = useAnimatedValue(0);
   useEffect(() => {
     Animated.timing(anim, { toValue: pct, duration: 850, delay, useNativeDriver: false }).start();
