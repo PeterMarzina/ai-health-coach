@@ -10,6 +10,7 @@ import {
 } from './localSession';
 import * as workouts from './workouts';
 import { detectPersonalRecords, PRSetInput } from './personalRecords';
+import { FlushResult, mergeFlushResult, pendingDeletesOf, withPendingDeletes } from './sessionMerge';
 import { totalVolume } from './workoutVolume';
 import { scheduleRestEndNotification, cancelRestEndNotification, type RestNotificationText } from './restTimer';
 import type { Exercise, PersonalRecordType, SessionSummary, SetType } from '@/src/types/workout';
@@ -105,16 +106,32 @@ async function flushToRemote(state: LocalSessionState): Promise<LocalSessionStat
   await workouts.upsertSessionRemote({
     id: state.sessionId, userId: state.userId, name: state.name, routineId: state.routineId, startedAt: state.startedAt,
   });
+  // Eerst de delete-outbox: anders telt een verwijderde set nog mee in de
+  // PR-detectie/volume van endSession.
+  const deletes = pendingDeletesOf(state);
+  for (const id of deletes.setIds) await workouts.deleteSetRemote(id);
+  for (const id of deletes.exerciseRowIds) await workouts.deleteSessionExerciseRemote(id);
   if (state.exercises.length > 0) {
     await workouts.upsertSessionExercisesRemote(state.sessionId, state.exercises);
   }
-  for (const s of state.sets.filter((s) => !s.synced)) {
+  const unsynced = state.sets.filter((s) => !s.synced);
+  for (const s of unsynced) {
     await workouts.upsertSetRemote({
       id: s.localId, userId: state.userId, sessionId: state.sessionId, exerciseId: s.exerciseId,
       setNumber: s.setNumber, reps: s.reps, weightKg: s.weightKg, setType: s.setType, completedAt: s.completedAt,
     });
   }
-  const next: LocalSessionState = { ...state, sessionSynced: true, sets: state.sets.map((s) => ({ ...s, synced: true })) };
+  const flushed: FlushResult = {
+    sets: new Map(unsynced.map((s) => [s.localId, s.setNumber])),
+    deletedSetIds: deletes.setIds,
+    deletedExerciseRowIds: deletes.exerciseRowIds,
+  };
+  // In de meest recente cache verwerken, niet `state` terugschrijven: tijdens de
+  // flush kan er al iets gewijzigd zijn. Is de sessie intussen afgerond of
+  // weggegooid (geen cache meer), dan niets opslaan — anders komt hij terug.
+  const latest = await loadLocalSession(state.userId);
+  if (!latest || latest.sessionId !== state.sessionId) return mergeFlushResult(state, flushed);
+  const next = mergeFlushResult(latest, flushed);
   await saveLocalSession(next);
   return next;
 }
@@ -145,14 +162,18 @@ export async function addExerciseToSession(
 export async function removeExerciseFromSession(state: LocalSessionState, exerciseId: string): Promise<LocalSessionState> {
   const entry = state.exercises.find((e) => e.exerciseId === exerciseId);
   const setsToRemove = state.sets.filter((s) => s.exerciseId === exerciseId);
-  const next: LocalSessionState = {
+  // Deletes gaan via de outbox: lukt de call nu niet (offline), dan probeert de
+  // volgende sync (uiterlijk bij endSession) het opnieuw.
+  const next = withPendingDeletes({
     ...state,
     exercises: state.exercises.filter((e) => e.exerciseId !== exerciseId),
     sets: state.sets.filter((s) => s.exerciseId !== exerciseId),
-  };
+  }, {
+    setIds: setsToRemove.map((s) => s.localId),
+    exerciseRowIds: entry ? [entry.id] : [],
+  });
   await saveLocalSession(next);
-  if (entry) workouts.deleteSessionExerciseRemote(entry.id).catch(() => {});
-  for (const s of setsToRemove) workouts.deleteSetRemote(s.localId).catch(() => {});
+  syncPendingWrites(next).catch(() => {});
   return next;
 }
 
@@ -183,28 +204,25 @@ async function syncOneSet(state: LocalSessionState, set: LocalSet): Promise<void
   // gewijzigde cache (extra set toegevoegd terwijl deze nog liep).
   const latest = await loadLocalSession(state.userId);
   if (!latest || latest.sessionId !== state.sessionId) return;
-  await saveLocalSession({ ...latest, sets: latest.sets.map((s) => (s.localId === set.localId ? { ...s, synced: true } : s)) });
+  await saveLocalSession(mergeFlushResult(latest, {
+    sets: new Map([[set.localId, set.setNumber]]), deletedSetIds: [], deletedExerciseRowIds: [],
+  }));
 }
 
 export async function removeSet(state: LocalSessionState, localSetId: string): Promise<LocalSessionState> {
   const removed = state.sets.find((s) => s.localId === localSetId);
   if (!removed) return state;
+  // Hernummerde sets moeten opnieuw naar de server (synced: false) en de
+  // verwijderde set gaat via de outbox — beide worden bij een mislukte sync
+  // later opnieuw geprobeerd.
   const remaining = state.sets
     .filter((s) => s.exerciseId === removed.exerciseId && s.localId !== localSetId)
     .sort((a, b) => a.setNumber - b.setNumber)
-    .map((s, i) => ({ ...s, setNumber: i + 1 }));
+    .map((s, i) => (s.setNumber === i + 1 ? s : { ...s, setNumber: i + 1, synced: false }));
   const others = state.sets.filter((s) => s.exerciseId !== removed.exerciseId);
-  const next: LocalSessionState = { ...state, sets: [...others, ...remaining] };
+  const next = withPendingDeletes({ ...state, sets: [...others, ...remaining] }, { setIds: [removed.localId] });
   await saveLocalSession(next);
-  workouts.deleteSetRemote(removed.localId).catch(() => {});
-  for (const s of remaining) {
-    workouts
-      .upsertSetRemote({
-        id: s.localId, userId: state.userId, sessionId: state.sessionId, exerciseId: s.exerciseId,
-        setNumber: s.setNumber, reps: s.reps, weightKg: s.weightKg, setType: s.setType, completedAt: s.completedAt,
-      })
-      .catch(() => {});
-  }
+  syncPendingWrites(next).catch(() => {});
   return next;
 }
 

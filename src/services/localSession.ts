@@ -5,8 +5,9 @@
 // dit eerst uit en biedt het "Sessie hervatten?" aan (zie workoutSession.ts).
 //
 // Scope bewust beperkt: dit beschermt tegen een gekilde/herstarte app tijdens
-// een training. Het is geen volwaardige offline-queue met retries-met-backoff
-// of conflict-resolutie tussen meerdere toestellen — zie DECISIONS.md.
+// een training. Niet-gesyncte sets en verwijderingen (pendingDeletes) worden bij
+// de volgende sync opnieuw verstuurd, maar er is geen retry-met-backoff of
+// conflict-resolutie tussen meerdere toestellen — zie DECISIONS.md.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { SetType } from '@/src/types/workout';
 
@@ -32,6 +33,11 @@ export type LocalPlannedExercise = {
 
 export type LocalRestTimer = { exerciseId: string; endsAt: string; notificationId: string | null };
 
+// Verwijderingen die nog naar de server moeten. Een delete is idempotent (een
+// al verwijderde rij nogmaals verwijderen is geen fout), dus dubbel versturen
+// na een race is onschuldig.
+export type LocalPendingDeletes = { setIds: string[]; exerciseRowIds: string[] };
+
 export type LocalSessionState = {
   sessionId: string;
   userId: string;
@@ -42,6 +48,8 @@ export type LocalSessionState = {
   exercises: LocalPlannedExercise[];
   sets: LocalSet[];
   restTimer: LocalRestTimer | null;
+  // Optioneel: caches van vóór deze toevoeging hebben het veld niet.
+  pendingDeletes?: LocalPendingDeletes;
 };
 
 const keyFor = (userId: string) => `active_workout_session:${userId}`;

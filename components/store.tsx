@@ -226,16 +226,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // en dan zegt de coach "rond eerst de onboarding af" zonder dat je er ooit komt.
   useEffect(() => {
     if (!currentUserId) return;
+    let cancelled = false;
+    const cacheKey = `onboarded:${currentUserId}`;
     supabase
       .from('profiles')
       .select('full_name, profile_context')
       .eq('id', currentUserId)
       .maybeSingle()
-      .then(({ data }) => setOnboardedCheck({ userId: currentUserId, value: !!data?.full_name && !!data?.profile_context }));
+      .then(async ({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          // Offline/serverfout: niet terug naar onboarding sturen — afronden zou het
+          // bestaande profiel overschrijven. Laatst bekende waarde gebruiken; zonder
+          // die gaat de gebruiker door, de volgende start checkt opnieuw.
+          const cached = await AsyncStorage.getItem(cacheKey).catch(() => null);
+          if (!cancelled) setOnboardedCheck({ userId: currentUserId, value: cached !== '0' });
+          return;
+        }
+        const value = !!data?.full_name && !!data?.profile_context;
+        AsyncStorage.setItem(cacheKey, value ? '1' : '0').catch(() => {});
+        setOnboardedCheck({ userId: currentUserId, value });
+      });
+    return () => { cancelled = true; };
   }, [currentUserId]);
 
   const markOnboarded = useCallback(() => {
-    if (currentUserId) setOnboardedCheck({ userId: currentUserId, value: true });
+    if (!currentUserId) return;
+    AsyncStorage.setItem(`onboarded:${currentUserId}`, '1').catch(() => {});
+    setOnboardedCheck({ userId: currentUserId, value: true });
   }, [currentUserId]);
 
   const value = useMemo<AuthCtx>(() => ({ session, onboarded, loading, markOnboarded }), [session, onboarded, loading, markOnboarded]);
@@ -304,9 +322,15 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   const loadToday = useCallback(() => {
     if (!userId) return;
     Promise.all([
-      supabase.from('profiles').select('streak_days, xp_total, last_active_date').eq('id', userId).single(),
+      // maybeSingle: tijdens de onboarding bestaat de profielrij nog niet — dat is
+      // geen fout, maar gewoon "nog geen streak/XP".
+      supabase.from('profiles').select('streak_days, xp_total, last_active_date').eq('id', userId).maybeSingle(),
       supabase.from('daily_progress').select('*').eq('user_id', userId).eq('date', todayKey).maybeSingle(),
-    ]).then(([{ data: profileRow }, { data: dayRow }]) => {
+    ]).then(([{ data: profileRow, error: profileError }, { data: dayRow, error: dayError }]) => {
+      // Mislukte fetch (offline, serverfout): NIET als geladen markeren. Anders staan
+      // streak/XP op 0 en schrijft de eerste actie die nullen over de echte waarden.
+      // De volgende poging komt bij terugkeer naar de app (AppState 'active').
+      if (profileError || dayError) return;
       setStreakDays(profileRow?.streak_days ?? 0);
       setXpTotal(profileRow?.xp_total ?? 0);
       setLastActiveDate(profileRow?.last_active_date ?? null);
@@ -324,6 +348,16 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (userId) loadToday();
   }, [userId, loadToday]);
+
+  // Eerdere load mislukt (bv. offline gestart)? Opnieuw proberen zodra de app terug
+  // op de voorgrond komt; zolang blijven acties geblokkeerd (zie `ready`).
+  useEffect(() => {
+    if (!userId || ready) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') loadToday();
+    });
+    return () => sub.remove();
+  }, [userId, ready, loadToday]);
 
   // Slaat de nieuwe dagvoortgang op (lokaal + Supabase). `newlyEarnedXp` > 0
   // betekent dat dit de eerste keer is dat een taak vandaag is voltooid —
