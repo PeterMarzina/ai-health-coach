@@ -208,20 +208,28 @@ describe('weggooien', () => {
   });
 });
 
-describe('hangende request', () => {
-  it('blokkeert de wachtrij niet voor altijd', async () => {
+describe('afronden op een trage verbinding', () => {
+  it('stuurt sets die al gesynced zijn niet opnieuw', async () => {
     const s = await started();
-    jest.useFakeTimers();
-    try {
-      mocked.upsertSetRemote.mockImplementationOnce(() => new Promise<void>(() => {}));
-      const afterLog = await logSet(s, 'bench', { reps: 8, weightKg: 80, setType: 'normal' });
-      const ending = endSession(afterLog, {});
-      await jest.advanceTimersByTimeAsync(30_000); // de hangende set-upsert geeft op
-      await jest.advanceTimersByTimeAsync(30_000);
-      const res = await ending;
-      expect(res.ok).toBe(true);
-    } finally {
-      jest.useRealTimers();
-    }
+    let state = await logSet(s, 'bench', { reps: 8, weightKg: 80, setType: 'normal' });
+    state = await logSet(state, 'bench', { reps: 6, weightKg: 85, setType: 'normal' });
+    await drain();
+    mocked.upsertSetRemote.mockClear();
+    // `state` is wat het scherm heeft: daar staan de sets nog als niet-gesynced.
+    expect(state.sets.every((x) => !x.synced)).toBe(true);
+    const res = await endSession(state, {});
+    expect(res.ok).toBe(true);
+    expect(mocked.upsertSetRemote).not.toHaveBeenCalled();
+  });
+
+  it('een request die opgaf (timeout) wordt bij afronden alsnog verstuurd', async () => {
+    const s = await started();
+    mocked.upsertSetRemote.mockRejectedValueOnce(new Error('AbortError: timeout'));
+    const state = await logSet(s, 'bench', { reps: 8, weightKg: 80, setType: 'normal' });
+    await drain();
+    mocked.upsertSetRemote.mockClear();
+    const res = await endSession(state, {});
+    expect(res.ok).toBe(true);
+    expect(mocked.upsertSetRemote).toHaveBeenCalledTimes(1);
   });
 });

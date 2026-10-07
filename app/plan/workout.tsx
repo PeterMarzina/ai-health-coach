@@ -393,7 +393,7 @@ export default function WorkoutSessionScreen() {
           <>
             <View style={{ marginBottom: 14 }}>
               <Text style={{ fontSize: 24, fontWeight: '800', color: c.text, letterSpacing: -0.5 }}>{session.name}</Text>
-              <Text style={{ fontSize: 13, color: c.sub, marginTop: 3 }}>{fill(t('n_exercises'), { n: session.exercises.length })}</Text>
+              <Text style={{ fontSize: 13, color: c.sub, marginTop: 3 }}>{session.exercises.length === 1 ? t('n_exercises_one') : fill(t('n_exercises'), { n: session.exercises.length })}</Text>
             </View>
 
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>

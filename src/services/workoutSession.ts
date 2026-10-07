@@ -11,7 +11,7 @@ import {
 } from './localSession';
 import * as workouts from './workouts';
 import { detectPersonalRecords, PRSetInput } from './personalRecords';
-import { FlushResult, mergeFlushResult, pendingDeletesOf, withPendingDeletes } from './sessionMerge';
+import { FlushResult, mergeFlushResult, pendingDeletesOf, withPendingDeletes, withSyncedFlagsFrom } from './sessionMerge';
 import { totalVolume } from './workoutVolume';
 import { scheduleRestEndNotification, cancelRestEndNotification, type RestNotificationText } from './restTimer';
 import type { Exercise, PersonalRecordType, SessionSummary, SetType } from '@/src/types/workout';
@@ -31,25 +31,10 @@ function serialQueue() {
 // wijzigingen lokaal gebeurden. Zonder wachtrij kon een trage upsert van een set
 // ná de delete van diezelfde set landen (set gelogd en meteen weer verwijderd) —
 // dan stond hij weer op de server en telde hij mee in PR's en volume. Een taak
-// mag zelf nooit enqueueRemote aanroepen (deadlock).
-const remoteQueue = serialQueue();
-
-// supabase-js heeft geen request-timeout: één request die blijft hangen (half
-// open verbinding bij wisselen van netwerk) zou anders de hele wachtrij — en
-// daarmee afronden — voor altijd blokkeren.
-const REMOTE_TASK_TIMEOUT_MS = 30_000;
-
-function withTimeout<T>(promise: Promise<T>): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('timeout')), REMOTE_TASK_TIMEOUT_MS);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-function enqueueRemote<T>(task: () => Promise<T>): Promise<T> {
-  return remoteQueue(() => withTimeout(task()));
-}
+// mag zelf nooit enqueueRemote aanroepen (deadlock). Elke request heeft een
+// timeout (src/lib/supabase.js), dus een taak eindigt altijd en de wachtrij
+// loopt door — zonder dat een opgegeven taak op de achtergrond nog doorschrijft.
+const enqueueRemote = serialQueue();
 
 // Sessies die in deze app-run zijn afgerond of weggegooid. Een late write — een
 // sync die nog liep, of de rusttimer die afliep tijdens het weggooien — mag zo'n
@@ -372,8 +357,10 @@ export async function endSession(
   try {
     // De samenvatting en PR's komen uit `state` (wat de gebruiker op het scherm
     // ziet), niet uit de cache: die kan achterlopen als een AsyncStorage-write
-    // mislukte.
-    await enqueueRemote(() => flushToRemote(state));
+    // mislukte. Alleen welke sets al gesynced zijn komt uit de cache — anders
+    // stuurt afronden elke set van de training opnieuw (traag op slecht bereik).
+    const cached = await loadLocalSession(state.userId);
+    await enqueueRemote(() => flushToRemote(withSyncedFlagsFrom(state, cached)));
 
     const exerciseIds = Array.from(new Set(state.sets.map((s) => s.exerciseId)));
     const historical = await workouts.fetchHistoricalSetsByExercise(state.userId, exerciseIds, state.sessionId);

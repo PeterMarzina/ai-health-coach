@@ -63,7 +63,7 @@ export default function RoutineDetail() {
           <Icon name="chevL" size={19} color={c.text} />
         </TouchableOpacity>
         <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.6, marginBottom: 4 }}>{routineName}</Text>
-        <Text style={{ fontSize: 13, color: c.sub, marginBottom: 18 }}>{fill(t('n_exercises'), { n: exercises.length })}</Text>
+        <Text style={{ fontSize: 13, color: c.sub, marginBottom: 18 }}>{exercises.length === 1 ? t('n_exercises_one') : fill(t('n_exercises'), { n: exercises.length })}</Text>
 
         {loading ? (
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />

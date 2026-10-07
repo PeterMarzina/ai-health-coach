@@ -69,6 +69,11 @@ export const supabase = createClient(
       autoRefreshToken: true,
       detectSessionInUrl: false,
     },
+    // Elke databaserequest geeft na 30 s op. Zonder timeout kan één request op
+    // een half-open verbinding (wisselen van wifi naar 4G) eeuwig blijven hangen,
+    // en daarmee de sync-wachtrij van de workout of het laden van de dag.
+    // Edge Functions (AI-coach) vallen hier bewust niet onder.
+    db: { timeout: 30_000 },
   }
 );
 
