@@ -136,14 +136,27 @@ export default function WorkoutSessionScreen() {
     await enterSession(next);
   };
 
+  // Routines voor het startscherm na het weggooien. Offline is een lege lijst
+  // prima: een lege workout starten kan dan nog steeds.
+  const reloadRoutines = async (uid: string) => {
+    try {
+      setRoutines(await fetchRoutines(uid));
+    } catch {
+      setRoutines([]);
+    }
+  };
+
   const handleResumeDiscard = async () => {
     if (!pendingResume || !userId) return;
     const toDiscard = pendingResume;
     setPendingResume(null);
     setLoadingStart(true);
-    await abandonSession(toDiscard);
-    setRoutines(await fetchRoutines(userId));
-    setLoadingStart(false);
+    try {
+      await abandonSession(toDiscard);
+      await reloadRoutines(userId);
+    } finally {
+      setLoadingStart(false);
+    }
   };
 
   const handleStartEmpty = async () => {
@@ -279,10 +292,13 @@ export default function WorkoutSessionScreen() {
 
   const handleDiscardSession = async () => {
     if (!session) return;
+    const toDiscard = session;
     setConfirmDiscard(false);
-    await abandonSession(session);
+    // Eerst de sessie-UI weg: anders kan de rusttimer of een afgevinkte set
+    // tijdens het weggooien nog een write voor deze sessie doen.
     setSession(null);
-    if (userId) setRoutines(await fetchRoutines(userId));
+    await abandonSession(toDiscard);
+    if (userId) await reloadRoutines(userId);
   };
 
   const handleEndSession = async () => {

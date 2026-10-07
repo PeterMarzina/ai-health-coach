@@ -316,16 +316,28 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   const currentKey = userId ? `${userId}:${todayKey}` : null;
   const ready = currentKey !== null && loadedKey === currentKey;
 
+  // Telt writes. Een load die al onderweg was toen er een write kwam, wordt
+  // genegeerd: anders zet die trage response de dag terug naar vóór de write en
+  // kun je dezelfde XP twee keer halen.
+  const writeSeq = useRef(0);
+  // Voor welke gebruiker + dag er nu een load loopt. Retries (interval, tik
+  // terwijl niet geladen) starten dan geen tweede: anders gooide elke retry de
+  // vorige weg en werd een trage verbinding (> 15 s per load) nooit 'ready'.
+  const loadingKey = useRef<string | null>(null);
+  // De gebruiker + dag van de laatst gevraagde load: een response voor een
+  // eerdere dag (middernacht gepasseerd terwijl hij liep) wordt genegeerd.
+  const requestedKey = useRef<string | null>(null);
+
   // Laadt streak/XP en de voortgang van vandaag uit Supabase — de bron van waarheid,
   // ook om lokale state te herstellen als een write mislukte. De state wordt pas in
   // de .then gezet: nooit synchroon vanuit het effect dat dit aanroept.
-  // Volgnummer van de laatste load. Een load die nog onderweg was toen er een
-  // nieuwere load of een write kwam, wordt genegeerd: anders zet een trage
-  // response de dag terug naar vóór die write en kun je dezelfde XP twee keer halen.
-  const loadSeq = useRef(0);
   const loadToday = useCallback(() => {
     if (!userId) return;
-    const seq = ++loadSeq.current;
+    const key = `${userId}:${todayKey}`;
+    requestedKey.current = key;
+    if (loadingKey.current === key) return;
+    loadingKey.current = key;
+    const seq = writeSeq.current;
     Promise.all([
       // maybeSingle: tijdens de onboarding bestaat de profielrij nog niet — dat is
       // geen fout, maar gewoon "nog geen streak/XP".
@@ -334,8 +346,9 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
     ]).then(([{ data: profileRow, error: profileError }, { data: dayRow, error: dayError }]) => {
       // Mislukte fetch (offline, serverfout): NIET als geladen markeren. Anders staan
       // streak/XP op 0 en schrijft de eerste actie die nullen over de echte waarden.
-      // De volgende poging komt bij terugkeer naar de app (AppState 'active').
-      if (profileError || dayError || seq !== loadSeq.current) return;
+      // De volgende poging komt via de retry hieronder.
+      if (loadingKey.current === key) loadingKey.current = null;
+      if (profileError || dayError || seq !== writeSeq.current || requestedKey.current !== key) return;
       setStreakDays(profileRow?.streak_days ?? 0);
       setXpTotal(profileRow?.xp_total ?? 0);
       setLastActiveDate(profileRow?.last_active_date ?? null);
@@ -346,7 +359,9 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
         waterL: Number(dayRow.water_l),
         xpAwarded: dayRow.xp_awarded ?? emptyDailyProgress(todayKey).xpAwarded,
       } : emptyDailyProgress(todayKey));
-      setLoadedKey(`${userId}:${todayKey}`);
+      setLoadedKey(key);
+    }, () => {
+      if (loadingKey.current === key) loadingKey.current = null;
     });
   }, [userId, todayKey]);
 
@@ -382,7 +397,7 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       loadToday();
       return;
     }
-    loadSeq.current++; // een load die nu nog onderweg is, is verouderd
+    writeSeq.current++; // een load die nu nog onderweg is, is verouderd
     const isFirstActionToday = newlyEarnedXp > 0 && !hasAnyActivity(progress);
     const nextStreakDays = isFirstActionToday ? computeNextStreak(lastActiveDate, streakDays, todayKey) : streakDays;
     const nextLastActive = isFirstActionToday ? todayKey : lastActiveDate;

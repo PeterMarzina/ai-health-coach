@@ -17,35 +17,77 @@ import { scheduleRestEndNotification, cancelRestEndNotification, type RestNotifi
 import type { Exercise, PersonalRecordType, SessionSummary, SetType } from '@/src/types/workout';
 
 // ── Volgorde van server-writes ─────────────────────────────────────
-// Alle writes naar de server lopen één voor één door deze wachtrij, in de
-// volgorde waarin de wijzigingen lokaal gebeurden. Zonder wachtrij kon een
-// trage upsert van een set ná de delete van diezelfde set landen (set gelogd en
-// meteen weer verwijderd) — dan stond hij weer op de server en telde hij mee in
-// PR's en volume. Een taak mag zelf nooit enqueueRemote aanroepen (deadlock).
-let remoteQueue: Promise<unknown> = Promise.resolve();
-
-function enqueueRemote<T>(task: () => Promise<T>): Promise<T> {
-  const run = remoteQueue.then(task, task);
-  remoteQueue = run.catch(() => {});
-  return run;
+// Voert taken één voor één uit, in de volgorde waarin ze aangeboden worden.
+function serialQueue() {
+  let tail: Promise<unknown> = Promise.resolve();
+  return <T>(task: () => Promise<T>): Promise<T> => {
+    const run = tail.then(task, task);
+    tail = run.catch(() => {});
+    return run;
+  };
 }
 
-// Probeert weggegooide sessies waarvan de delete eerder mislukte opnieuw te
-// verwijderen. Geeft de ids terug die nog steeds openstaan.
-function retryPendingSessionDeletes(userId: string): Promise<string[]> {
+// Alle writes naar de server lopen door deze wachtrij, in de volgorde waarin de
+// wijzigingen lokaal gebeurden. Zonder wachtrij kon een trage upsert van een set
+// ná de delete van diezelfde set landen (set gelogd en meteen weer verwijderd) —
+// dan stond hij weer op de server en telde hij mee in PR's en volume. Een taak
+// mag zelf nooit enqueueRemote aanroepen (deadlock).
+const remoteQueue = serialQueue();
+
+// supabase-js heeft geen request-timeout: één request die blijft hangen (half
+// open verbinding bij wisselen van netwerk) zou anders de hele wachtrij — en
+// daarmee afronden — voor altijd blokkeren.
+const REMOTE_TASK_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), REMOTE_TASK_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function enqueueRemote<T>(task: () => Promise<T>): Promise<T> {
+  return remoteQueue(() => withTimeout(task()));
+}
+
+// Sessies die in deze app-run zijn afgerond of weggegooid. Een late write — een
+// sync die nog liep, of de rusttimer die afliep tijdens het weggooien — mag zo'n
+// sessie niet opnieuw in de cache of op de server zetten.
+const closedSessionIds = new Set<string>();
+
+async function persist(state: LocalSessionState): Promise<void> {
+  // Synchroon vlak vóór de write gecheckt: abandon/end zetten de id hierin vóór
+  // ze de cache wissen, dus een write die hierna nog komt wordt overgeslagen.
+  if (closedSessionIds.has(state.sessionId)) return;
+  await saveLocalSession(state);
+}
+
+// De lijst met weg te gooien sessies wordt zowel binnen als buiten de
+// wachtrij bijgewerkt; via een eigen lock gaat er geen toevoeging verloren.
+const pendingListLock = serialQueue();
+
+function updatePendingSessionDeletes(userId: string, update: (ids: string[]) => string[]): Promise<void> {
+  return pendingListLock(async () => {
+    await savePendingSessionDeletes(userId, update(await loadPendingSessionDeletes(userId)));
+  });
+}
+
+// Verwijdert weggegooide sessies van de server; lukt het niet (offline), dan
+// blijven ze op de lijst voor een volgende keer.
+function retryPendingSessionDeletes(userId: string): Promise<void> {
   return enqueueRemote(async () => {
     const pending = await loadPendingSessionDeletes(userId);
-    if (!pending.length) return pending;
-    const left: string[] = [];
+    const deleted: string[] = [];
     for (const id of pending) {
       try {
         await workouts.deleteWorkoutSession(id);
-      } catch {
-        left.push(id);
-      }
+        deleted.push(id);
+      } catch {}
     }
-    await savePendingSessionDeletes(userId, left);
-    return left;
+    if (deleted.length) {
+      await updatePendingSessionDeletes(userId, (ids) => ids.filter((id) => !deleted.includes(id)));
+    }
   });
 }
 
@@ -77,7 +119,7 @@ export async function startSession(
     sets: [],
     restTimer: null,
   };
-  await saveLocalSession(state); // crash-safe vóór er ook maar iets naar het net gaat
+  await persist(state); // crash-safe vóór er ook maar iets naar het net gaat
   retryPendingSessionDeletes(userId).catch(() => {});
   syncPendingWrites(state).catch(() => {});
   return state;
@@ -86,17 +128,25 @@ export async function startSession(
 // Reconciliatie bij het openen van het sessie-scherm: lokale cache + server
 // worden tegen elkaar gehouden zodat een gekilde app nooit een sessie kost.
 export async function resumeActiveSession(userId: string): Promise<LocalSessionState | null> {
-  const local = await loadLocalSession(userId);
-  // Eerst openstaande deletes van weggegooide sessies afhandelen: anders komt
-  // een offline weggegooide sessie hieronder terug als "actief" op de server.
-  const stillDeleting = await retryPendingSessionDeletes(userId).catch(() => [] as string[]);
+  // Openstaande deletes van weggegooide sessies op de achtergrond opnieuw
+  // proberen. Niet op wachten (de wachtrij kan achter een trage request staan):
+  // de lijst zelf zegt al welke sessies niet meer hervat mogen worden.
+  retryPendingSessionDeletes(userId).catch(() => {});
+  const discarded = await loadPendingSessionDeletes(userId);
+  const isClosed = (id: string) => discarded.includes(id) || closedSessionIds.has(id);
+
+  let local = await loadLocalSession(userId);
+  if (local && isClosed(local.sessionId)) {
+    await clearLocalSession(userId);
+    local = null;
+  }
   let remote = null;
   try {
     remote = await workouts.fetchActiveSession(userId);
   } catch {
     remote = null; // offline: vertrouw op de lokale cache
   }
-  if (remote && stillDeleting.includes(remote.id)) remote = null;
+  if (remote && isClosed(remote.id)) remote = null;
 
   if (!local && !remote) return null;
 
@@ -131,7 +181,7 @@ export async function resumeActiveSession(userId: string): Promise<LocalSessionS
       })),
       restTimer: null,
     };
-    await saveLocalSession(hydrated);
+    await persist(hydrated);
     return hydrated;
   }
 
@@ -145,6 +195,9 @@ export async function resumeActiveSession(userId: string): Promise<LocalSessionS
 }
 
 async function flushToRemote(state: LocalSessionState): Promise<LocalSessionState> {
+  // Weggegooid terwijl deze flush in de wachtrij stond: niets meer versturen,
+  // anders maakt de upsert de sessie na de delete opnieuw aan.
+  if (closedSessionIds.has(state.sessionId)) return state;
   await workouts.upsertSessionRemote({
     id: state.sessionId, userId: state.userId, name: state.name, routineId: state.routineId, startedAt: state.startedAt,
   });
@@ -174,7 +227,7 @@ async function flushToRemote(state: LocalSessionState): Promise<LocalSessionStat
   const latest = await loadLocalSession(state.userId);
   if (!latest || latest.sessionId !== state.sessionId) return mergeFlushResult(state, flushed);
   const next = mergeFlushResult(latest, flushed);
-  await saveLocalSession(next);
+  await persist(next);
   return next;
 }
 
@@ -196,8 +249,10 @@ export async function addExerciseToSession(
 ): Promise<LocalSessionState> {
   const entry: LocalPlannedExercise = { id: uuidv4(), exerciseId, position: state.exercises.length, ...defaults };
   const next = { ...state, exercises: [...state.exercises, entry] };
-  await saveLocalSession(next);
-  enqueueRemote(() => workouts.upsertSessionExercisesRemote(state.sessionId, [entry])).catch(() => {});
+  await persist(next);
+  enqueueRemote(async () => {
+    if (!closedSessionIds.has(state.sessionId)) await workouts.upsertSessionExercisesRemote(state.sessionId, [entry]);
+  }).catch(() => {});
   return next;
 }
 
@@ -214,7 +269,7 @@ export async function removeExerciseFromSession(state: LocalSessionState, exerci
     setIds: setsToRemove.map((s) => s.localId),
     exerciseRowIds: entry ? [entry.id] : [],
   });
-  await saveLocalSession(next);
+  await persist(next);
   syncPendingWrites(next).catch(() => {});
   return next;
 }
@@ -231,12 +286,13 @@ export async function logSet(
     setType: input.setType, completedAt: new Date().toISOString(), synced: false,
   };
   const next: LocalSessionState = { ...state, sets: [...state.sets, set] };
-  await saveLocalSession(next);
+  await persist(next);
   enqueueRemote(() => syncOneSet(next, set)).catch(() => {});
   return next;
 }
 
 async function syncOneSet(state: LocalSessionState, set: LocalSet): Promise<void> {
+  if (closedSessionIds.has(state.sessionId)) return;
   await workouts.upsertSetRemote({
     id: set.localId, userId: state.userId, sessionId: state.sessionId, exerciseId: set.exerciseId,
     setNumber: set.setNumber, reps: set.reps, weightKg: set.weightKg, setType: set.setType, completedAt: set.completedAt,
@@ -246,7 +302,7 @@ async function syncOneSet(state: LocalSessionState, set: LocalSet): Promise<void
   // gewijzigde cache (extra set toegevoegd terwijl deze nog liep).
   const latest = await loadLocalSession(state.userId);
   if (!latest || latest.sessionId !== state.sessionId) return;
-  await saveLocalSession(mergeFlushResult(latest, {
+  await persist(mergeFlushResult(latest, {
     sets: new Map([[set.localId, set.setNumber]]), deletedSetIds: [], deletedExerciseRowIds: [],
   }));
 }
@@ -263,7 +319,7 @@ export async function removeSet(state: LocalSessionState, localSetId: string): P
     .map((s, i) => (s.setNumber === i + 1 ? s : { ...s, setNumber: i + 1, synced: false }));
   const others = state.sets.filter((s) => s.exerciseId !== removed.exerciseId);
   const next = withPendingDeletes({ ...state, sets: [...others, ...remaining] }, { setIds: [removed.localId] });
-  await saveLocalSession(next);
+  await persist(next);
   syncPendingWrites(next).catch(() => {});
   return next;
 }
@@ -281,36 +337,30 @@ export async function startRestTimer(
     ...state,
     restTimer: { exerciseId, endsAt: new Date(Date.now() + seconds * 1000).toISOString(), notificationId },
   };
-  await saveLocalSession(next);
+  await persist(next);
   return next;
 }
 
 export async function clearRestTimer(state: LocalSessionState): Promise<LocalSessionState> {
   await cancelRestEndNotification(state.restTimer?.notificationId);
   const next: LocalSessionState = { ...state, restTimer: null };
-  await saveLocalSession(next);
+  await persist(next);
   return next;
 }
 
 // ── Afronden / annuleren ───────────────────────────────────────────
 export async function abandonSession(state: LocalSessionState): Promise<void> {
+  closedSessionIds.add(state.sessionId);
+  // Eerst duurzaam vastleggen dat deze sessie weg moet, dan pas de cache wissen:
+  // wordt de app daartussen gekild, dan ruimt het volgende openen 'm alsnog op.
+  await updatePendingSessionDeletes(state.userId, (ids) => (ids.includes(state.sessionId) ? ids : [...ids, state.sessionId]));
   await cancelRestEndNotification(state.restTimer?.notificationId);
   await clearLocalSession(state.userId);
-  // Via de wachtrij: een nog lopende sync van deze sessie mag 'm niet ná de
-  // delete opnieuw aanmaken.
-  await enqueueRemote(async () => {
-    try {
-      await workouts.deleteWorkoutSession(state.sessionId);
-    } catch {
-      // Offline: onthouden en bij het volgende starten/hervatten opnieuw
-      // proberen. (Stond de sessie nog niet op de server, dan is de retry een
-      // onschuldige no-op.)
-      const pending = await loadPendingSessionDeletes(state.userId);
-      if (!pending.includes(state.sessionId)) {
-        await savePendingSessionDeletes(state.userId, [...pending, state.sessionId]);
-      }
-    }
-  });
+  // De server-delete loopt op de achtergrond via de wachtrij (een nog lopende
+  // sync mag de sessie niet ná de delete opnieuw aanmaken) en blijft op de
+  // lijst staan tot hij lukt. Stond de sessie nog niet op de server, dan is de
+  // delete een onschuldige no-op.
+  retryPendingSessionDeletes(state.userId).catch(() => {});
 }
 
 export type EndSessionResult = { ok: true; summary: SessionSummary } | { ok: false; error: string };
@@ -345,6 +395,7 @@ export async function endSession(
     const endedAt = new Date().toISOString();
     await workouts.endWorkoutSession(state.sessionId, endedAt);
 
+    closedSessionIds.add(state.sessionId);
     await cancelRestEndNotification(state.restTimer?.notificationId);
     await clearLocalSession(state.userId);
 
