@@ -1,56 +1,47 @@
-# Welcome to your Expo app 👋
+# AI Health Coach
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Fitness- en voedingsapp (Expo SDK 56 + Expo Router) met een Supabase-backend:
+workout-tracker met routines en PR-detectie, voedingsdagboek met barcodescanner
+(Open Food Facts), herstel/slaap, gewoontes en een AI-coach (chat met volledige
+context + advies na de onboarding). Inloggen kan met e-mail of gebruikersnaam.
 
-## Get started
+## Setup
 
-1. Install dependencies
+1. `npm ci`
+2. Kopieer `.env.example` naar `.env` en vul de Supabase-URL en publishable key in.
+3. Development build starten (camera, notificaties en secure store hebben native code):
 
    ```bash
-   npm install
+   npx expo run:ios      # of: npx expo run:android
+   npx expo start        # dev server voor een al geïnstalleerde dev build
    ```
 
-2. Start the app
+   Veranderd `.env`? Start Metro dan met `--clear`: `EXPO_PUBLIC_*`-waarden worden
+   bij het bundelen ingebakken en anders uit de cache gehaald.
 
-   ```bash
-   npx expo start
-   ```
+Backend (migraties, Edge Functions, secrets): zie [`supabase/README.md`](supabase/README.md).
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Checks
 
 ```bash
-npm run reset-project
+npm run typecheck   # tsc --noEmit
+npm run lint        # ESLint incl. React Compiler-regels (0 waarschuwingen)
+npm test            # jest — pure logica in src/services
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+GitHub Actions (`.github/workflows/ci.yml`) draait deze checks plus `deno check`
+op de Edge Functions en alle migraties + RLS-tests op een lege Postgres.
 
-### Other setup steps
+## Talen
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Alle teksten staan in `constants/i18n.ts` (NL + EN). `en` is getypeerd als
+`Record<TKey, string>`, dus een sleutel die in één taal ontbreekt is een
+TypeScript-fout. Variabelen via `fill(t('sleutel'), { n: 3 })`.
 
-## Learn more
+## Structuur
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `app/` — schermen (file-based routing)
+- `components/` — gedeelde UI, thema en React Context-store
+- `src/services/` — Supabase-calls en pure logica (met tests)
+- `supabase/` — migraties, Edge Functions, RLS-tests
+- `DECISIONS.md` — ontwerpkeuzes
