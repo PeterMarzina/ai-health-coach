@@ -18,8 +18,32 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const MODEL = 'deepseek-ai/deepseek-v4-pro';
+// Welke aanbieder we gebruiken hangt af van de secrets: DEEPSEEK_API_KEY (DeepSeek zelf)
+// of anders NVIDIA_API_KEY. Model-id's verschillen per aanbieder en verouderen — NVIDIA
+// haalde deepseek-v4-pro op 2026-08-07 offline en antwoordt sindsdien met 410 Gone.
+interface Provider {
+  name: 'deepseek' | 'nvidia';
+  apiKey: string;
+  baseUrl: string;
+  models: string[]; // voorkeursvolgorde
+}
+
+function resolveProvider(): Provider | null {
+  const deepseekKey = Deno.env.get('DEEPSEEK_API_KEY');
+  if (deepseekKey) {
+    return { name: 'deepseek', apiKey: deepseekKey, baseUrl: 'https://api.deepseek.com', models: ['deepseek-v4-pro', 'deepseek-v4-flash'] };
+  }
+  const nvidiaKey = Deno.env.get('NVIDIA_API_KEY');
+  if (nvidiaKey) {
+    return {
+      name: 'nvidia',
+      apiKey: nvidiaKey,
+      baseUrl: 'https://integrate.api.nvidia.com/v1',
+      models: ['deepseek-ai/deepseek-v4-pro', 'deepseek-ai/deepseek-v4-flash-0731'],
+    };
+  }
+  return null;
+}
 
 const RATE_LIMIT_PER_MINUTE = 10;
 const RATE_LIMIT_PER_DAY = 100;
@@ -53,15 +77,36 @@ STRIKTE REGELS
 5. Verwijs niet naar jezelf als "AI" of "taalmodel" en leg niet uit hoe je tot het advies komt — geef alleen het advies zelf.
 6. Als PROFIEL onvoldoende of tegenstrijdige data bevat om een zinnig advies te geven, zeg dat kort en vraag om welke ontbrekende informatie het gaat — verzin niets.`;
 
+// Eén keer per cold start ophalen welke model-id's de aanbieder aanbiedt. Lukt dat niet,
+// dan de eerste keus proberen — dan faalt hooguit die ene aanroep, met de reden in de logs.
+let cachedModel: string | null = null;
+
+async function pickModel(provider: Provider): Promise<string> {
+  if (cachedModel) return cachedModel;
+  try {
+    const res = await fetch(`${provider.baseUrl}/models`, { headers: { Authorization: `Bearer ${provider.apiKey}` } });
+    if (res.ok) {
+      const ids = new Set(((await res.json()).data ?? []).map((m: any) => m.id));
+      cachedModel = provider.models.find((id) => ids.has(id)) ?? provider.models[0];
+      return cachedModel;
+    }
+    console.error('ai-coach: modellenlijst ophalen mislukt', res.status);
+  } catch (e) {
+    console.error('ai-coach: modellenlijst ophalen mislukt', e);
+  }
+  cachedModel = provider.models[0];
+  return cachedModel;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const apiKey = Deno.env.get('NVIDIA_API_KEY');
-    if (!apiKey) {
-      console.error('ai-coach: NVIDIA_API_KEY ontbreekt (zet als Supabase secret)');
+    const provider = resolveProvider();
+    if (!provider) {
+      console.error('ai-coach: geen DEEPSEEK_API_KEY of NVIDIA_API_KEY (zet er één als Supabase secret)');
       return json({ error: 'De AI-coach is nu niet bereikbaar, probeer het later opnieuw.' }, 500);
     }
 
@@ -124,14 +169,14 @@ Deno.serve(async (req: Request) => {
     // (geen prompt, te lang) niet meetellen voor de limiet.
     await supabaseAdmin.from('ai_coach_calls').insert({ user_id: userId });
 
-    const nvidiaRes = await fetch(NVIDIA_URL, {
+    const aiRes = await fetch(`${provider.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${provider.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: await pickModel(provider),
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt },
@@ -147,13 +192,13 @@ Deno.serve(async (req: Request) => {
     });
 
     // Details alleen in de functie-logs (Dashboard → Edge Functions → Logs): de ruwe
-    // NVIDIA-fout of stacktrace kan interne info bevatten en hoort niet in de app.
-    if (!nvidiaRes.ok) {
-      console.error('ai-coach: NVIDIA API-fout', nvidiaRes.status, await nvidiaRes.text());
+    // fout van de aanbieder kan interne info bevatten en hoort niet in de app.
+    if (!aiRes.ok) {
+      console.error(`ai-coach: ${provider.name} API-fout`, aiRes.status, await aiRes.text());
       return json({ error: 'De AI-coach is nu niet bereikbaar, probeer het later opnieuw.' }, 502);
     }
 
-    const data = await nvidiaRes.json();
+    const data = await aiRes.json();
     const content = data.choices?.[0]?.message?.content ?? '';
 
     return json({ content });

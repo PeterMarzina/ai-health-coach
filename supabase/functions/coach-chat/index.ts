@@ -7,13 +7,15 @@
 //   'summarize' → korte samenvatting van een afgerond gesprek, opgeslagen in
 //                 coach_conversation_summaries (het "geheugen" van de coach)
 //
-// GEEN Anthropic meer. Dit draait volledig op DeepSeek's eigen (OpenAI-compatibele) API
-// via de `openai` npm-package, gericht op base_url https://api.deepseek.com. Er is dus
-// geen Anthropic API key nodig — alleen een DEEPSEEK_API_KEY.
+// Praat met DeepSeek via een OpenAI-compatibele API. Welke aanbieder dat is, hangt af
+// van de secrets: staat DEEPSEEK_API_KEY er, dan DeepSeek zelf; anders de NVIDIA-
+// endpoint met NVIDIA_API_KEY (zelfde sleutel als ai-coach). Zo werkt de coach met
+// welke van de twee sleutels je ook hebt, zonder code-wijziging.
 //
-// Model: deepseek-v4-pro voor de coach-gesprekken — reasoning-model met 1M context,
-// prima geschikt voor lange, complexe USER_CONTEXT. Samenvattingen draaien op
-// deepseek-v4-flash (klein/goedkoop; geen diepe context of thinking nodig).
+// Model: een deepseek-v4 reasoning-model met 1M context, prima voor lange, complexe
+// USER_CONTEXT. Model-id's verschillen per aanbieder en verouderen (NVIDIA haalde
+// v4-pro op 2026-08-07 offline), dus de lijst hieronder is een voorkeursvolgorde en
+// bij NVIDIA controleren we hem tegen /v1/models.
 //
 // Tool calling gebeurt in het OpenAI function-calling formaat: tools zijn
 // { type: 'function', function: { name, description, parameters } }, en tool-antwoorden
@@ -24,16 +26,46 @@
 // zodat RLS gewoon van kracht blijft — deze functie kan dus nooit data van andere
 // gebruikers lezen of schrijven, ook niet als het model rare tool-inputs verzint.
 //
-// Secrets: DEEPSEEK_API_KEY (Supabase secret). SUPABASE_URL/SUPABASE_ANON_KEY worden
-// automatisch geïnjecteerd. Deploy: supabase functions deploy coach-chat
+// Secrets: DEEPSEEK_API_KEY of NVIDIA_API_KEY (Supabase secret). SUPABASE_URL/
+// SUPABASE_ANON_KEY worden automatisch geïnjecteerd.
+// Deploy: supabase functions deploy coach-chat
 
 import OpenAI from 'npm:openai@4';
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
-const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+interface Provider {
+  name: 'deepseek' | 'nvidia';
+  apiKey: string;
+  baseURL: string;
+  coachModels: string[];   // voorkeursvolgorde
+  summaryModels: string[];
+}
 
-const COACH_MODEL = 'deepseek-v4-pro';     // reasoning-model, voor het coach-gesprek
-const SUMMARY_MODEL = 'deepseek-v4-flash'; // snel/goedkoop, voor samenvattingen
+// DeepSeek eerst: eigen API, eigen model-namen. Anders NVIDIA met de vendor-prefix.
+function resolveProvider(): Provider | null {
+  const deepseekKey = Deno.env.get('DEEPSEEK_API_KEY');
+  if (deepseekKey) {
+    return {
+      name: 'deepseek',
+      apiKey: deepseekKey,
+      baseURL: 'https://api.deepseek.com',
+      coachModels: ['deepseek-v4-pro', 'deepseek-v4-flash'],
+      summaryModels: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    };
+  }
+  const nvidiaKey = Deno.env.get('NVIDIA_API_KEY');
+  if (nvidiaKey) {
+    return {
+      name: 'nvidia',
+      apiKey: nvidiaKey,
+      baseURL: 'https://integrate.api.nvidia.com/v1',
+      coachModels: ['deepseek-ai/deepseek-v4-pro', 'deepseek-ai/deepseek-v4-flash-0731'],
+      summaryModels: ['deepseek-ai/deepseek-v4-flash-0731', 'deepseek-ai/deepseek-v4-pro'],
+    };
+  }
+  return null;
+}
+
 const MAX_TOOL_ITERATIONS = 8; // V4 is agressiever met tool-retries dan Claude was
 
 // Reasoning-effort voor het coach-gesprek: 'high' geeft een goede balans tussen
@@ -62,6 +94,30 @@ function json(body: unknown, status = 200): Response {
 // exact te zijn, zolang we maar consequent dezelfde maat gebruiken.
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+// ── Modelkeuze ───────────────────────────────────────────────────────────────
+// Model-id's verouderen: NVIDIA geeft 410 Gone zodra een model end-of-life is. Eén keer
+// per cold start ophalen welke id's de aanbieder aanbiedt, dan per rol de eerste uit de
+// voorkeurslijst kiezen. Lukt het ophalen niet, dan gewoon de eerste keus proberen —
+// dan faalt hooguit die ene aanroep, met de reden in de logs.
+let availableModels: Set<string> | null = null;
+
+async function loadAvailableModels(client: OpenAI): Promise<Set<string>> {
+  if (availableModels) return availableModels;
+  try {
+    const list = await client.models.list();
+    availableModels = new Set(list.data.map((m) => m.id));
+  } catch (e) {
+    console.error('coach-chat: modellenlijst ophalen mislukt', e);
+    availableModels = new Set<string>();
+  }
+  return availableModels;
+}
+
+async function pickModel(client: OpenAI, candidates: string[]): Promise<string> {
+  const models = await loadAvailableModels(client);
+  return candidates.find((id) => models.has(id)) ?? candidates[0];
 }
 
 function daysAgoIso(days: number): string {
@@ -537,7 +593,8 @@ interface ChatRequestMessage { role: 'user' | 'assistant'; content: string }
 interface CoachAction { tool: string; input: unknown; ok: boolean }
 
 async function runCoachChat(
-  deepseek: OpenAI,
+  ai: OpenAI,
+  provider: Provider,
   supabase: SupabaseClient,
   userId: string,
   mode: 'chat' | 'intake',
@@ -559,22 +616,23 @@ async function runCoachChat(
   ];
 
   const tools = buildTools(mode);
+  const model = await pickModel(ai, provider.coachModels);
   const actions: CoachAction[] = [];
   let finalText = '';
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-    // deepseek-v4-pro met reasoning_effort 'high': redeneert over de volledige
-    // USER_CONTEXT zonder overdreven veel output-tokens te verstoken (V4-Pro op
-    // 'max' staat bekend als erg verbose). Geen temperature/top_p meegeven — de
-    // API-defaults zijn prima voor dit gebruik.
-    const response = await deepseek.chat.completions.create({
-      model: COACH_MODEL,
+    // reasoning_effort 'high': redeneert over de volledige USER_CONTEXT zonder
+    // overdreven veel output-tokens te verstoken (V4-Pro op 'max' staat bekend als erg
+    // verbose). Geen temperature/top_p meegeven — de API-defaults zijn prima.
+    // chat_template_kwargs.thinking = false: zonder dat veld blijft de NVIDIA-endpoint
+    // bij V4-reasoning-modellen soms hangen, en de "thinking"-tekst gebruiken we toch niet.
+    const response = await ai.chat.completions.create({
+      model,
       max_tokens: 4096,
       messages,
       tools,
       reasoning_effort: COACH_REASONING_EFFORT,
-      // @ts-ignore — DeepSeek-specifiek veld, niet in de standaard OpenAI-types
-      thinking: { type: 'enabled' },
+      chat_template_kwargs: { thinking: false },
     } as any);
 
     const choice = response.choices[0];
@@ -612,7 +670,8 @@ async function runCoachChat(
 // ── Samenvatting van een gesprek (punt 7) ────────────────────────────────────
 
 async function summarizeConversation(
-  deepseek: OpenAI,
+  ai: OpenAI,
+  provider: Provider,
   supabase: SupabaseClient,
   userId: string,
   source: 'chat' | 'intake',
@@ -624,9 +683,10 @@ async function summarizeConversation(
     .join('\n')
     .slice(0, 24000); // hard cap; samenvatten hoeft niet op een compleet boek
 
-  const response = await deepseek.chat.completions.create({
-    model: SUMMARY_MODEL,
+  const response = await ai.chat.completions.create({
+    model: await pickModel(ai, provider.summaryModels),
     max_tokens: 300,
+    chat_template_kwargs: { thinking: false },
     messages: [
       {
         role: 'system',
@@ -637,7 +697,7 @@ async function summarizeConversation(
       },
       { role: 'user', content: transcript },
     ],
-  });
+  } as any);
 
   const summary = (response.choices[0]?.message?.content ?? '').trim();
 
@@ -702,9 +762,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const apiKey = Deno.env.get('DEEPSEEK_API_KEY');
-    if (!apiKey) {
-      console.error('coach-chat: DEEPSEEK_API_KEY ontbreekt (zet als Supabase secret)');
+    const provider = resolveProvider();
+    if (!provider) {
+      console.error('coach-chat: geen DEEPSEEK_API_KEY of NVIDIA_API_KEY (zet er één als Supabase secret)');
       return json({ error: 'De coach is nu niet bereikbaar, probeer het later opnieuw.' }, 500);
     }
 
@@ -735,15 +795,15 @@ Deno.serve(async (req: Request) => {
     const limited = await checkRateLimit(userId);
     if (limited) return json({ error: limited }, 429);
 
-    // Native DeepSeek-client (OpenAI SDK, DeepSeek base_url). Geen Anthropic meer nodig.
-    const deepseek = new OpenAI({ apiKey, baseURL: DEEPSEEK_BASE_URL });
+    // OpenAI-SDK tegen de gekozen aanbieder: zelfde request-formaat, andere base URL.
+    const ai = new OpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL });
 
     if (mode === 'summarize') {
       if (!history.some((m) => m.role === 'user')) {
         return json({ summary: '' }); // niets te onthouden
       }
       const summary = await summarizeConversation(
-        deepseek, supabase, userId,
+        ai, provider, supabase, userId,
         body.source === 'intake' ? 'intake' : 'chat',
         lang, history
       );
@@ -754,7 +814,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: `Onbekende mode: ${mode}` }, 400);
     }
 
-    const result = await runCoachChat(deepseek, supabase, userId, mode, lang, history);
+    const result = await runCoachChat(ai, provider, supabase, userId, mode, lang, history);
     return json(result);
   } catch (e) {
     // Details alleen in de functie-logs; de ruwe fout (bv. van DeepSeek) hoort niet in de app.

@@ -36,8 +36,8 @@ een eigen versie-timestamp. Geef het repo-bestand exact die versie als naam
 
 | slug | broncode | secret |
 |---|---|---|
-| `ai-coach` | `functions/ai-coach/` | `NVIDIA_API_KEY` |
-| `coach-chat` | `functions/coach-chat/` | `DEEPSEEK_API_KEY` |
+| `ai-coach` | `functions/ai-coach/` | `DEEPSEEK_API_KEY` of `NVIDIA_API_KEY` |
+| `coach-chat` | `functions/coach-chat/` | `DEEPSEEK_API_KEY` of `NVIDIA_API_KEY` |
 | `product-lookup` | `functions/product-lookup/` | `OFF_USER_AGENT` (optioneel) |
 | `username-login` | `functions/username-login/` | — (`verify_jwt = false`, zie `config.toml`) |
 
@@ -48,6 +48,20 @@ npx supabase functions deploy <slug>
 `username-login` draait bewust zonder JWT-check: wie inlogt heeft nog geen sessie.
 De functie controleert zelf het wachtwoord en geeft het e-mailadres nooit terug.
 
-Er draait ook nog een extra deployment `super-api` — een kopie van
-`product-lookup` onder een verkeerde slug. Die kan weg met
-`npx supabase functions delete super-api`.
+De broncode in deze repo moet gelijk zijn aan wat er gedeployed staat. `ai-coach`
+en `coach-chat` zijn op 15 sep vanaf een andere machine gedeployed (met de
+DeepSeek/NVIDIA-aanbiederkeuze, want NVIDIA haalde het oude model op 7 aug offline);
+die versie is op 7 okt teruggezet in de repo. Controleer bij twijfel met
+`npx supabase functions download <slug>` vóór je deployt.
+
+## Testen
+
+```bash
+# Alle migraties op een lege Postgres + RLS-checks (supabase/tests/rls.sql)
+PGHOST=localhost PGUSER=postgres PGPASSWORD=postgres ../scripts/test-migrations.sh
+
+# Typecheck van de Edge Functions (root-package.json is van de app, niet van Deno)
+DENO_NO_PACKAGE_JSON=1 deno check functions/*/index.ts
+```
+
+Beide draaien ook in GitHub Actions (`.github/workflows/ci.yml`).
