@@ -103,11 +103,11 @@ export default function ExercisePicker() {
   const handlePick = async (exercise: Exercise) => {
     if (userId) await markExerciseUsed(userId, exercise.id);
     if (forSession === '1') {
-      // Terug naar het (al gemonte) sessie-scherm — expo-router's `navigate`
-      // pop't terug naar die instantie i.p.v. een nieuwe te maken, zodat de
-      // actieve sessie-state niet verloren gaat. `pickedAt` is een nonce zodat
-      // hetzelfde effect ook afgaat als dezelfde oefening 2x gekozen wordt.
-      router.navigate({ pathname: '/plan/workout', params: { pickedExerciseId: exercise.id, pickedAt: pickNonce() } });
+      // Terug naar het (al gemonte) sessie-scherm. `dismissTo` pop't terug naar
+      // die instantie; `navigate` zou er (niet-gefocust in de stack) een tweede
+      // workout-scherm bovenop zetten. `pickedAt` is een nonce zodat hetzelfde
+      // effect ook afgaat als dezelfde oefening 2x gekozen wordt.
+      router.dismissTo({ pathname: '/plan/workout', params: { pickedExerciseId: exercise.id, pickedAt: pickNonce() } });
     } else {
       router.push({ pathname: '/plan/exercise-history', params: { exerciseId: exercise.id, exerciseName: exercise.name } });
     }

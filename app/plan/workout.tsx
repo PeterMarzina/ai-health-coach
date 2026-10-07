@@ -198,7 +198,7 @@ export default function WorkoutSessionScreen() {
 
   // Binnengekomen vanaf routine-detail (A3) met startRoutineId/-Name? Dan die routine
   // direct starten. Een eigen effect (niet alleen bij het eerste laden): routine-detail
-  // gebruikt router.navigate, dat terugspringt naar een al geopend workout-scherm —
+  // gebruikt router.dismissTo, dat terugspringt naar een al geopend workout-scherm —
   // dan komen alleen de params opnieuw binnen en draaide er eerder niets.
   useEffect(() => {
     if (!userId || loadingStart || !params.startRoutineId || !params.startRoutineName) return;

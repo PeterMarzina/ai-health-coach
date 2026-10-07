@@ -8,6 +8,10 @@ import { Platform } from 'react-native';
 
 let handlerReady = false;
 let permissionPromise: Promise<boolean> | null = null;
+// Al eens geweigerd in deze app-sessie: dan niet bij elke set opnieuw de
+// systeemvraag stellen, alleen nog kijken of het intussen via de
+// instellingen is toegestaan.
+let deniedOnce = false;
 
 export function ensureNotificationHandler(): void {
   if (handlerReady) return;
@@ -34,6 +38,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
       }
       const existing = await Notifications.getPermissionsAsync();
       if (existing.granted) return true;
+      if (deniedOnce || existing.canAskAgain === false) return false;
       const requested = await Notifications.requestPermissionsAsync({
         ios: { allowAlert: true, allowBadge: true, allowSound: true },
       });
@@ -43,6 +48,9 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   const granted = await permissionPromise;
   // Alleen een "ja" onthouden: na een weigering kan de gebruiker het later via
   // de systeeminstellingen toch toestaan, dat moeten we de volgende keer zien.
-  if (!granted) permissionPromise = null;
+  if (!granted) {
+    permissionPromise = null;
+    deniedOnce = true;
+  }
   return granted;
 }

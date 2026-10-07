@@ -410,6 +410,8 @@ const nl = {
   log_out: 'Uitloggen',
   save_failed_title: 'Opslaan mislukt',
   save_failed_msg: 'Je wijziging is niet opgeslagen. Controleer je internetverbinding en probeer het opnieuw.',
+  progress_not_loaded_title: 'Nog niet geladen',
+  progress_not_loaded_msg: 'Je voortgang van vandaag is nog niet geladen, dus dit is niet opgeslagen. Controleer je internetverbinding en probeer het zo opnieuw.',
 
   // Herstel — validatie
   rec_invalid_sleep: 'Een nacht heeft maximaal 24 uur.',
@@ -820,6 +822,8 @@ const en: Record<TKey, string> = {
   log_out: 'Log out',
   save_failed_title: 'Saving failed',
   save_failed_msg: 'Your change was not saved. Check your internet connection and try again.',
+  progress_not_loaded_title: 'Not loaded yet',
+  progress_not_loaded_msg: "Today's progress hasn't loaded yet, so this wasn't saved. Check your internet connection and try again in a moment.",
 
   // Herstel — validatie
   rec_invalid_sleep: 'A night has at most 24 hours.',

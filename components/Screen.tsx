@@ -26,6 +26,9 @@ export function Screen({
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        // Knoppen werken meteen, ook met het toetsenbord open (anders kost de
+        // eerste tik alleen het sluiten van het toetsenbord).
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[{ paddingTop: insets.top + padTop, paddingHorizontal: 16, paddingBottom: padBottom }, contentStyle]}
       >
         {children}

@@ -3,7 +3,7 @@
 //   en een toggle() om te wisselen. Gebruik in een scherm: const { c } = useTheme();
 // SettingsProvider + useSettings(): bewaart je doelen (goals) en metingen (measurements)
 //   zodat alle schermen ze kunnen lezen én aanpassen.
-import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useColorScheme, Alert, AppState } from 'react-native';
 import { DARK, LIGHT, Palette } from '@/constants/theme';
 import { DEFAULT_GOALS, DEFAULT_MEASUREMENTS } from '@/constants/data';
@@ -319,8 +319,13 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   // Laadt streak/XP en de voortgang van vandaag uit Supabase — de bron van waarheid,
   // ook om lokale state te herstellen als een write mislukte. De state wordt pas in
   // de .then gezet: nooit synchroon vanuit het effect dat dit aanroept.
+  // Volgnummer van de laatste load. Een load die nog onderweg was toen er een
+  // nieuwere load of een write kwam, wordt genegeerd: anders zet een trage
+  // response de dag terug naar vóór die write en kun je dezelfde XP twee keer halen.
+  const loadSeq = useRef(0);
   const loadToday = useCallback(() => {
     if (!userId) return;
+    const seq = ++loadSeq.current;
     Promise.all([
       // maybeSingle: tijdens de onboarding bestaat de profielrij nog niet — dat is
       // geen fout, maar gewoon "nog geen streak/XP".
@@ -330,7 +335,7 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       // Mislukte fetch (offline, serverfout): NIET als geladen markeren. Anders staan
       // streak/XP op 0 en schrijft de eerste actie die nullen over de echte waarden.
       // De volgende poging komt bij terugkeer naar de app (AppState 'active').
-      if (profileError || dayError) return;
+      if (profileError || dayError || seq !== loadSeq.current) return;
       setStreakDays(profileRow?.streak_days ?? 0);
       setXpTotal(profileRow?.xp_total ?? 0);
       setLastActiveDate(profileRow?.last_active_date ?? null);
@@ -350,20 +355,34 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
   }, [userId, loadToday]);
 
   // Eerdere load mislukt (bv. offline gestart)? Opnieuw proberen zodra de app terug
-  // op de voorgrond komt; zolang blijven acties geblokkeerd (zie `ready`).
+  // op de voorgrond komt, en zolang het niet lukt ook elke 15 seconden (de
+  // verbinding kan terugkomen terwijl de app open blijft). Zolang blijven acties
+  // geblokkeerd (zie `ready`).
   useEffect(() => {
     if (!userId || ready) return;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') loadToday();
     });
-    return () => sub.remove();
+    const retry = setInterval(loadToday, 15_000);
+    return () => {
+      sub.remove();
+      clearInterval(retry);
+    };
   }, [userId, ready, loadToday]);
 
   // Slaat de nieuwe dagvoortgang op (lokaal + Supabase). `newlyEarnedXp` > 0
   // betekent dat dit de eerste keer is dat een taak vandaag is voltooid —
   // dan telt ook de streak mee (max 1x per dag opgehoogd).
   const commitProgress = useCallback((next: DailyProgress, newlyEarnedXp: number) => {
-    if (!userId || !ready) return; // nog niet geladen: niet op een lege dag verder bouwen
+    if (!userId) return;
+    if (!ready) {
+      // Nog niet geladen (bv. offline gestart): niet op een lege dag verder bouwen,
+      // maar de actie ook niet stil laten verdwijnen.
+      Alert.alert(t('progress_not_loaded_title'), t('progress_not_loaded_msg'));
+      loadToday();
+      return;
+    }
+    loadSeq.current++; // een load die nu nog onderweg is, is verouderd
     const isFirstActionToday = newlyEarnedXp > 0 && !hasAnyActivity(progress);
     const nextStreakDays = isFirstActionToday ? computeNextStreak(lastActiveDate, streakDays, todayKey) : streakDays;
     const nextLastActive = isFirstActionToday ? todayKey : lastActiveDate;
@@ -397,12 +416,15 @@ export function DailyProvider({ children }: { children: React.ReactNode }) {
       }));
     }
     // Mislukt een write, dan melden en terug naar de stand in Supabase — anders telt
-    // de app stappen/XP die na een herstart verdwenen blijken.
+    // de app stappen/XP die na een herstart verdwenen blijken. Eerst als "niet
+    // geladen" markeren: lukt het herladen niet (offline), dan mag er niet verder
+    // gebouwd worden op de optimistische XP/streak; de retry hierboven herstelt het.
     Promise.all(writes).then((results) => {
       const failed = results.find((r) => r.error);
       if (!failed) return;
       console.warn('Dagvoortgang opslaan mislukt', failed.error);
       Alert.alert(t('save_failed_title'), t('save_failed_msg'));
+      setLoadedKey(null);
       loadToday();
     });
   }, [userId, ready, progress, lastActiveDate, streakDays, xpTotal, todayKey, t, loadToday]);

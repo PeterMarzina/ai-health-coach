@@ -11,11 +11,21 @@ const RECENT_MAX = 10;
 
 const keyFor = (base: string, userId: string) => `${base}:${userId}`;
 
-// Leest de lijst van deze gebruiker; valt eenmalig terug op de oude, gedeelde
-// sleutel (van vóór de per-gebruiker-opslag) zodat bestaande favorieten blijven.
+// Leest de lijst van deze gebruiker. De oude, gedeelde sleutel (van vóór de
+// per-gebruiker-opslag) wordt eenmalig overgezet naar de eerste gebruiker die
+// hem leest en daarna verwijderd — anders zou elk ander account op dit toestel
+// die lijst ook te zien krijgen.
 async function readList(base: string, userId: string): Promise<string[]> {
   try {
-    const raw = (await AsyncStorage.getItem(keyFor(base, userId))) ?? (await AsyncStorage.getItem(base));
+    let raw = await AsyncStorage.getItem(keyFor(base, userId));
+    if (raw === null) {
+      const legacy = await AsyncStorage.getItem(base);
+      if (legacy !== null) {
+        await AsyncStorage.setItem(keyFor(base, userId), legacy);
+        await AsyncStorage.removeItem(base);
+        raw = legacy;
+      }
+    }
     return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
     return [];

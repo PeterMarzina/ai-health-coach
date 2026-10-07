@@ -23,11 +23,15 @@ describe('setVolume / totalVolume', () => {
 });
 
 describe('volumeByDate', () => {
+  // Tijden in lokale tijd opbouwen: volumeByDate groepeert per lokale dag, dus
+  // vaste UTC-strings zouden in een andere tijdzone op een andere dag vallen.
+  const at = (day: number, hour: number, minute = 0) => new Date(2026, 7, day, hour, minute).toISOString();
+
   it('groups by day and skips warmups', () => {
     const sets = [
-      { weightKg: 20, reps: 10, setType: 'warmup', completedAt: '2026-08-01T10:00:00Z' },
-      { weightKg: 80, reps: 8, setType: 'normal', completedAt: '2026-08-01T10:05:00Z' },
-      { weightKg: 90, reps: 5, setType: 'normal', completedAt: '2026-08-03T10:00:00Z' },
+      { weightKg: 20, reps: 10, setType: 'warmup', completedAt: at(1, 10) },
+      { weightKg: 80, reps: 8, setType: 'normal', completedAt: at(1, 10, 5) },
+      { weightKg: 90, reps: 5, setType: 'normal', completedAt: at(3, 10) },
     ];
     expect(volumeByDate(sets)).toEqual([
       { date: '2026-08-01', volumeKg: 640 },

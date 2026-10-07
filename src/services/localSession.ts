@@ -78,3 +78,24 @@ export async function clearLocalSession(userId: string): Promise<void> {
     await AsyncStorage.removeItem(keyFor(userId));
   } catch {}
 }
+
+// Weggegooide sessies waarvan de server-delete nog niet lukte (offline). Zonder
+// deze lijst bleef zo'n sessie op de server "actief" en kwam hij later terug als
+// "Sessie hervatten?". workoutSession.ts probeert ze opnieuw bij het (her)openen.
+const pendingDeleteKey = (userId: string) => `pending_session_deletes:${userId}`;
+
+export async function loadPendingSessionDeletes(userId: string): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(pendingDeleteKey(userId));
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function savePendingSessionDeletes(userId: string, sessionIds: string[]): Promise<void> {
+  try {
+    if (sessionIds.length) await AsyncStorage.setItem(pendingDeleteKey(userId), JSON.stringify(sessionIds));
+    else await AsyncStorage.removeItem(pendingDeleteKey(userId));
+  } catch {}
+}

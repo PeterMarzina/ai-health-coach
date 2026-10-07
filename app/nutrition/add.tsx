@@ -82,6 +82,10 @@ export default function AddScreen() {
   }, [query, tab, t]);
 
   const source = tab === 'all' ? (query.trim() ? all : []) : tab === 'recent' ? recent : tab === 'favorites' ? favorites : own;
+  // Wordt de zoekbalk leeggemaakt terwijl een zoekopdracht loopt, dan zet die
+  // (geannuleerde) zoekopdracht `loading` nooit meer uit — bij een lege zoekbalk
+  // valt er niets te laden, dus dan geen spinner.
+  const showLoading = loading && (tab !== 'all' || !!query.trim());
   const filtered = tab === 'all' ? source : source.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   const toggleFavorite = async (product: Product) => {
@@ -147,7 +151,7 @@ export default function AddScreen() {
         })}
       </View>
 
-      {loading ? (
+      {showLoading ? (
         <ActivityIndicator color={c.accent} style={{ marginTop: 30 }} />
       ) : (
         <FlatList

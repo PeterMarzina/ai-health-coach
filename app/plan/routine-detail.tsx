@@ -39,7 +39,9 @@ export default function RoutineDetail() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const handleStart = () => {
-    router.navigate({ pathname: '/plan/workout', params: { startRoutineId: routineId, startRoutineName: routineName } });
+    // dismissTo: staat het workout-scherm al in de stack (via "Kies een routine"),
+    // dan terug naar dat scherm i.p.v. er een tweede bovenop te zetten.
+    router.dismissTo({ pathname: '/plan/workout', params: { startRoutineId: routineId, startRoutineName: routineName } });
   };
 
   const handleDelete = async () => {
