@@ -5,6 +5,7 @@
 //   - login        als je niet bent ingelogd
 //   - onboarding   als je wel bent ingelogd maar je profiel nog niet hebt ingevuld
 //   - de tabs      als alles klaar is
+import '../src/global.css'; // NativeWind (Tailwind): moet één keer in de root geladen worden
 import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

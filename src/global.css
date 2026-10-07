@@ -1,0 +1,4 @@
+/* NativeWind-invoer (metro.config.js → withNativeWind). Zonder dit bestand blijft Metro hangen. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
