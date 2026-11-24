@@ -39,7 +39,9 @@ function resolveProvider(): Provider | null {
       name: 'nvidia',
       apiKey: nvidiaKey,
       baseUrl: 'https://integrate.api.nvidia.com/v1',
-      models: ['deepseek-ai/deepseek-v4-pro', 'deepseek-ai/deepseek-v4-flash-0731'],
+      // DeepSeek V4 staat sinds 2026-08 niet meer op NVIDIA. NVIDIA's eigen Nemotron-modellen
+      // antwoorden direct; partner-modellen (GLM, Kimi, Mistral) hingen in de free-tier wachtrij.
+      models: ['nvidia/nemotron-3-ultra-550b-a55b', 'nvidia/nemotron-3.5-lightning-30b-a3b'],
     };
   }
   return null;
