@@ -46,7 +46,10 @@
         {
           "cameraPermission": "Gebruik de camera om een barcode op een product te scannen."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "reactCompiler": true
